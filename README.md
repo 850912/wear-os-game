@@ -1,4 +1,4 @@
-# Wear Board Games
+# wear-os-game
 
 一个面向 Wear OS 的双人棋盘游戏示例，包含五子棋和中国象棋两种模式。
 
