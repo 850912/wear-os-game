@@ -83,3 +83,15 @@
 `app/build/outputs/apk/debug/app-debug.apk`
 
 当前交付环境没有完整 Android SDK / Build Tools，因此这里提供的是已经做过 Java 语法级检查、2048 逻辑测试和 XML 解析检查的完整工程源码；建议最终在 Android Studio / 真机 Wear OS 上再做一轮触控和二维码扫描测试。
+
+## CI / GitHub Actions 构建兼容性
+
+本工程已固定为以下兼容组合：
+
+- Android Gradle Plugin: **8.6.1**
+- Gradle: **8.7**
+- JDK: **17**
+- compileSdk / targetSdk: **35**
+
+这样可以直接兼容 GitHub Actions 中的 Gradle 8.7，避免 `Minimum supported Gradle version is 8.9` 错误。
+工程同时附带 `.github/workflows/android.yml`，推送到 `main` 后可自动构建并上传 `app-debug.apk`。

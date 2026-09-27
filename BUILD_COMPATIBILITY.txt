@@ -1,0 +1,11 @@
+Wear OS Game build compatibility
+================================
+Android Gradle Plugin : 8.6.1
+Gradle                : 8.7
+JDK                   : 17
+compileSdk            : 35
+targetSdk             : 35
+
+Reason for this pin:
+AGP 8.7.x requires Gradle 8.9, while the current GitHub Actions build uses Gradle 8.7.
+AGP 8.6.x officially supports Gradle 8.7 and API level 35.
