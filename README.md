@@ -95,3 +95,9 @@
 
 这样可以直接兼容 GitHub Actions 中的 Gradle 8.7，避免 `Minimum supported Gradle version is 8.9` 错误。
 工程同时附带 `.github/workflows/android.yml`，推送到 `main` 后可自动构建并上传 `app-debug.apk`。
+
+## GitHub Actions 修复（2026-09-27）
+
+如果日志出现 `Warning: Failed to find package 'tools'`，说明旧 workflow 请求了已经废弃的 Android SDK `tools` 包。本项目当前的 `.github/workflows/android.yml` 已移除该包，并改为安装 `platform-tools`、`platforms;android-35` 和 `build-tools;35.0.0`。
+
+Termux 推荐直接运行项目根目录的 `termux_push_build.sh`。这个脚本会同步 `.github`，可避免旧版推送脚本因为排除 `.github/` 而导致 GitHub 上的 workflow 一直没有更新。
