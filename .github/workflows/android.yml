@@ -2,14 +2,13 @@ name: Build Wear OS APK
 
 on:
   push:
-    branches:
-      - main
-
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
-
+    branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -25,21 +24,40 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDKMANAGER="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
-      - name: Grant execute permission
-        run: chmod +x ./gradlew
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
-      - name: Show Gradle version
-        run: ./gradlew --version
+      - name: Show build environment
+        shell: bash
+        run: |
+          java -version
+          gradle --version
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Upload APK
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: wear-os-game-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14

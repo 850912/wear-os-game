@@ -1,17 +1,15 @@
-GitHub Actions build fix (2026-09-27)
+2026-09-27 CI fix v3
 
-Failure cause from the supplied Actions log:
-  android-actions/setup-android@v3 was invoked with packages: tools platform-tools.
-  The legacy Android SDK package "tools" no longer exists in the current SDK repository,
-  so sdkmanager failed with: Warning: Failed to find package 'tools'.
+Observed failure:
+- GitHub Actions was still executing an OLD workflow with:
+  cmdline-tools-version: 12266719
+  packages: tools platform-tools
+- sdkmanager then failed: Failed to find package 'tools'.
 
-Fix in this package:
-  1. Removed packages: tools platform-tools from setup-android.
-  2. Removed the pinned cmdline-tools-version from the workflow.
-  3. Install only current packages explicitly:
-       platform-tools
-       platforms;android-35
-       build-tools;35.0.0
-  4. Keep JDK 17 + Gradle 8.7 + Android Gradle Plugin 8.6.1.
-  5. Added termux_push_build.sh. Unlike the previous helper, it DOES sync .github,
-     so the fixed workflow actually reaches GitHub.
+Changes:
+- Removed android-actions/setup-android from workflow.
+- Use preinstalled GitHub-hosted Android SDK cmdline-tools.
+- Install only platform-tools, platforms;android-35, build-tools;35.0.0.
+- Keep JDK 17, Gradle 8.7, AGP 8.6.1.
+- Hardened Termux push script to force-write workflow and verify the remote GitHub copy before waiting for Actions.
+- ZIP layout flattened so project files are at archive root.
