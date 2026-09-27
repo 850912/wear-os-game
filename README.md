@@ -1,25 +1,85 @@
-# wear-os-game
+# 腕上小游戏 Wear OS · v3.0
 
-一个面向 Wear OS 的双人棋盘游戏示例，包含五子棋和中国象棋两种模式。
+这是在上一版 `wearboardgames_optimized` 基础上继续优化的 Wear OS 原生 Java 工程，包名保持：
 
-## 功能
+`com.example.wearboardgames`
 
-- 同一块手表双人轮流游玩
-- 五子棋：11 x 11 棋盘、横竖斜线五子判定
-- 中国象棋：红黑双方轮流选择棋子和移动
-- 适配圆形小屏幕，棋盘使用 Canvas 绘制，无外部图片资源
-- GitHub Actions 自动构建 Debug APK 并上传为构建产物
+## v3.0 本次更新
 
-## 本地构建
+### 1. 2048 UI / 动画重做
+- 改为经典 2048 风格的米白背景、棕色棋盘、经典数字块配色。
+- 增加“分数 / 最佳”双计分框，最佳分数使用 `SharedPreferences` 持久保存。
+- 增加数字块滑动位移动画。
+- 合并时增加弹跳 / 回弹动画。
+- 新生成数字块增加缩放出现动画。
+- 达到 2048 后可继续挑战更高数字。
+- 逻辑拆分为独立 `Game2048Engine.java`，便于测试和维护。
 
-需要 JDK 17、Android SDK 35 和 Gradle 8.7：
+2048 的视觉方向参考 Gabriele Cirulli 的开源 2048 项目（MIT）；本工程使用 Android Canvas 重新实现，详见 `THIRD_PARTY_NOTICES.md`。
 
-```bash
-gradle assembleDebug
+### 2. 游戏动画改进
+- 中国象棋：确认移动后棋子从起点平滑移动到终点。
+- 五子棋：落子增加缩放回弹动画。
+- 反应点击：目标增加呼吸脉冲效果。
+- 新增贪吃蛇：连续移动、加速、食物脉冲与震动反馈。
+- 新增记忆闪烁：四颜色按序闪烁，玩家复现序列。
+
+### 3. 游戏列表
+当前共 6 款游戏：
+- 中国象棋
+- 五子棋
+- 2048
+- 反应点击
+- 贪吃蛇
+- 记忆闪烁
+
+主菜单改为纵向可滚动大卡片，圆形屏幕会缩窄卡片和底部按钮，避免边缘被圆屏裁切。
+
+### 4. 关于 / 捐赠
+- 新增“关于”页。
+- 作者显示为：**黑白君**。
+- 新增“支持作者”入口。
+- 捐赠页使用用户提供的微信收款码，并针对手表屏幕裁切为更大的可扫描区域。
+- 收款码只做裁切，没有重绘二维码内容；已在本地用二维码识别器校验裁切后的二维码仍可识别。
+- 所有标题、说明和按钮均按屏幕尺寸动态适配，尽量避免圆形小屏文字或按钮显示不全。
+
+### 5. 禁用右划返回
+按照需求，在主题中加入：
+
+```xml
+<item name="android:windowSwipeToDismiss">false</item>
 ```
 
-生成文件：`app/build/outputs/apk/debug/app-debug.apk`
+这样 Wear OS Activity 不再被系统的左到右滑动手势直接关闭，2048 和贪吃蛇可以正常使用水平滑动。
 
-## GitHub 构建
+物理返回键 / 系统返回事件仍然可用：游戏页先返回主菜单，捐赠页先返回关于页，主菜单再退出应用。
 
-将代码推送到 GitHub 后，`.github/workflows/android.yml` 会在 push 或 pull request 时自动构建。构建完成后可从 Actions 的 Artifacts 下载 APK。
+### 6. 原有中国象棋规则
+继续保留上一版完整规则判断：
+- 车直线及阻挡
+- 马走日与蹩马腿
+- 炮架
+- 象眼与不过河
+- 士九宫
+- 将帅九宫 / 将帅照面
+- 兵卒过河
+- 禁止送将
+- 将军与无合法着法判负
+- 撤销一步
+
+## 工程参数
+- `minSdk 30`
+- `targetSdk 35`
+- `compileSdk 35`
+- Java + Android Canvas
+- 无第三方运行时依赖
+- 版本：`3.0` / `versionCode 3`
+
+## 编译
+用 Android Studio 打开工程根目录，完成 Gradle Sync 后选择 **Build > Build APK(s)**。如果你本机已有 Gradle，也可以在工程根目录执行 `gradle assembleDebug`。
+
+生成位置通常为：
+
+`app/build/outputs/apk/debug/app-debug.apk`
+
+当前交付环境没有完整 Android SDK / Build Tools，因此这里提供的是已经做过 Java 语法级检查、2048 逻辑测试和 XML 解析检查的完整工程源码；建议最终在 Android Studio / 真机 Wear OS 上再做一轮触控和二维码扫描测试。
