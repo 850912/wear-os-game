@@ -39,6 +39,24 @@ public final class Game2048Engine {
         return score;
     }
 
+    public String serialize() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(score);
+        for (int y=0;y<SIZE;y++) for (int x=0;x<SIZE;x++) sb.append(',').append(board[y][x]);
+        return sb.toString();
+    }
+
+    public boolean restore(String state) {
+        if (state == null || state.length() == 0) return false;
+        String[] parts = state.split(",");
+        if (parts.length != 17) return false;
+        try {
+            score = Integer.parseInt(parts[0]);
+            for (int i=0;i<16;i++) board[i/4][i%4] = Integer.parseInt(parts[i+1]);
+            return true;
+        } catch (NumberFormatException e) { return false; }
+    }
+
     public MoveFrame move(int direction) {
         if (direction < 0 || direction > 3) return MoveFrame.unchanged();
 

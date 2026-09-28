@@ -14,8 +14,11 @@ import android.os.SystemClock;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.VelocityTracker;
+import android.widget.OverScroller;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -40,22 +43,48 @@ public final class GameHubView extends View {
     private static final int ABOUT = 14;
     private static final int DONATE = 15;
     private static final int FEEDBACK = 16;
+    private static final int CONNECT4 = 17;
+    private static final int REVERSI = 18;
+    private static final int MEMORY_MATCH = 19;
+    private static final int MAZE = 20;
+    private static final int NUMBER_TAP = 21;
+    private static final int QUICK_MATH = 22;
+    private static final int NIM = 23;
+    private static final int PONG = 24;
+    private static final int BRICK_BREAKER = 25;
+    private static final int DICE_DUEL = 26;
+    private static final int SUDOKU = 27;
+    private static final int RECORDS = 28;
+    private static final int RESUME_ITEM = -2;
 
     private static final String FEEDBACK_URL = "https://www.coolapk.com/u/22532694";
     private static final String[] MENU_TITLES = {
-            "中国象棋", "五子棋", "2048", "反应点击", "贪吃蛇", "记忆闪烁",
-            "井字棋", "色块猎手", "弹球挑战", "数字华容道", "熄灯解谜", "迷你扫雷", "猜拳挑战", "意见反馈", "关于"
+            "中国象棋", "五子棋", "井字棋", "四子棋", "黑白棋", "Nim 取石", "猜拳挑战",
+            "2048", "数字华容道", "熄灯解谜", "迷你扫雷", "记忆配对", "迷宫逃脱", "4×4 数独",
+            "反应点击", "贪吃蛇", "记忆闪烁", "色块猎手", "弹球挑战", "腕上乒乓", "砖块破坏",
+            "数字连点", "极速心算", "骰子对决",
+            "战绩记录", "意见反馈", "关于"
     };
     private static final String[] MENU_SUBS = {
-            "完整规则 · 双人对弈", "双人轮流 · 五连获胜", "经典滑动 · 合并动画",
-            "30 秒手速挑战", "滑动转向 · 10 分通关", "记住颜色 · 8 轮通关",
-            "你先手 · 对战手表", "找出不同色 · 12 关通关", "拖动挡板 · 连续反弹 12 次",
-            "3×3 拼图 · 还原数字顺序", "4×4 灯阵 · 全部熄灭", "5×5 雷区 · 5 颗地雷", "三局两胜 · 对战手表",
-            "在配对手机打开酷安主页", "作者 · 支持 · 开源说明"
+            "完整规则 · 双人对弈", "单人 AI / 双人 · 五连获胜", "单人 AI / 双人 · 三连线", "单人 AI / 双人 · 四连珠", "单人 AI / 双人 · 翻转棋子", "单人 AI / 双人 · 取走最后一颗", "三局两胜 · 对战手表",
+            "经典滑动 · 自动存档", "3×3 拼图 · 自动存档", "4×4 灯阵 · 自动存档", "5×5 雷区 · 自动存档", "翻牌配对 · 8 对图案", "滑动移动 · 找到出口", "4×4 数独 · 点击填数",
+            "30 秒手速挑战", "滑动转向 · 10 分通关", "记住颜色 · 8 轮通关", "找出不同色 · 12 关", "拖动挡板 · 连续反弹", "单人 / 双人同屏", "挡板反弹 · 清空砖块",
+            "按 1→16 顺序点击", "20 秒快速计算", "单人对手表 / 双人",
+            "游玩次数 · 胜负 · 最佳", "在配对手机打开酷安主页", "作者 · 支持 · 开源说明"
+    };
+    private static final String[] MENU_CATEGORIES = {
+            "棋盘对战", "棋盘对战", "棋盘对战", "棋盘对战", "棋盘对战", "棋盘对战", "棋盘对战",
+            "益智解谜", "益智解谜", "益智解谜", "益智解谜", "益智解谜", "益智解谜", "益智解谜",
+            "反应街机", "反应街机", "反应街机", "反应街机", "反应街机", "反应街机", "反应街机",
+            "轻松挑战", "轻松挑战", "轻松挑战",
+            "工具", "工具", "工具"
     };
     private static final int[] MENU_MODES = {
-            XIANGQI, GOMOKU, GAME_2048, TAP_RUSH, SNAKE, SIMON,
-            TICTACTOE, COLOR_HUNT, BOUNCE, SLIDE_PUZZLE, LIGHTS_OUT, MINI_MINES, ROCK_PAPER_SCISSORS, FEEDBACK, ABOUT
+            XIANGQI, GOMOKU, TICTACTOE, CONNECT4, REVERSI, NIM, ROCK_PAPER_SCISSORS,
+            GAME_2048, SLIDE_PUZZLE, LIGHTS_OUT, MINI_MINES, MEMORY_MATCH, MAZE, SUDOKU,
+            TAP_RUSH, SNAKE, SIMON, COLOR_HUNT, BOUNCE, PONG, BRICK_BREAKER,
+            NUMBER_TAP, QUICK_MATH, DICE_DUEL,
+            RECORDS, FEEDBACK, ABOUT
     };
 
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -63,6 +92,7 @@ public final class GameHubView extends View {
     private final Random random = new Random();
     private final boolean roundScreen;
     private final SharedPreferences prefs;
+    private final OverScroller menuScroller;
     private final PhoneLinkOpener phoneLinkOpener;
 
     private int mode = MENU;
@@ -91,6 +121,15 @@ public final class GameHubView extends View {
     private float menuMaxScroll;
     private boolean menuDragging;
     private int pressedMenuIndex = -1;
+    private VelocityTracker menuVelocityTracker;
+    private boolean menuSpringPending;
+    private int pressedBottomIndex = -1;
+    private float pressedBottomDownX, pressedBottomDownY;
+    private int pendingModeChoice = -1;
+    private final boolean[] aiMode = new boolean[32];
+    private boolean roundResultRecorded;
+    private boolean suppressResultRecord;
+    private int savedResumeMode = -1;
 
     // Shared touch state.
     private float panX, panY, zoom = 1f;
@@ -114,6 +153,7 @@ public final class GameHubView extends View {
     private boolean gomokuOver;
     private int gomokuLastX = -1, gomokuLastY = -1;
     private long gomokuStoneAnimStart;
+    private long gomokuAiDue;
 
     // 2048.
     private final Game2048Engine game2048 = new Game2048Engine();
@@ -152,6 +192,7 @@ public final class GameHubView extends View {
     private int tttLast = -1;
     private long tttMarkAnimStart;
     private long tttAiDue;
+    private int tttTurn = 1;
 
     // Color Hunt.
     private int colorGridN, colorTarget, colorScore;
@@ -186,6 +227,72 @@ public final class GameHubView extends View {
     private int rpsPlayer, rpsAi, rpsPlayerScore, rpsAiScore;
     private boolean rpsOver;
 
+    // Connect Four. 0 empty, 1 red/player 1, 2 yellow/player 2/AI.
+    private final int[] connect4 = new int[42];
+    private int connect4Turn = 1;
+    private boolean connect4Over;
+    private int connect4Last = -1;
+    private long connect4AiDue;
+
+    // Reversi 6x6 for watch-sized interaction.
+    private final int[] reversi = new int[36];
+    private int reversiTurn = 1;
+    private boolean reversiOver;
+    private long reversiAiDue;
+
+    // Memory pairs: 16 cards / 8 pairs.
+    private final int[] memoryCards = new int[16];
+    private final boolean[] memoryMatched = new boolean[16];
+    private int memoryFirst = -1, memorySecond = -1, memoryPairs, memoryMoves;
+    private long memoryHideAt;
+    private boolean memoryWon;
+
+    // Maze 9x9. Bitmask walls: 1 up, 2 right, 4 down, 8 left.
+    private final int[] mazeWalls = new int[81];
+    private int mazePlayer, mazeExit = 80, mazeMoves;
+    private boolean mazeWon;
+
+    // Number Tap 1..16.
+    private final int[] numberTapOrder = new int[16];
+    private int numberTapNext;
+    private long numberTapStart, numberTapFinish;
+    private boolean numberTapOver;
+
+    // Quick Math.
+    private int mathA, mathB, mathAnswer, mathScore, mathWrong, mathOp;
+    private final int[] mathChoices = new int[4];
+    private long mathDeadline;
+    private boolean mathOver;
+
+    // Nim: start with 21 stones, take 1..3, last stone wins.
+    private int nimStones = 21, nimTurn = 1;
+    private boolean nimOver;
+    private long nimAiDue;
+
+    // Pong.
+    private float pongX, pongY, pongVx, pongVy, pongBottomX, pongTopX;
+    private int pongBottomScore, pongTopScore;
+    private boolean pongRunning, pongOver;
+    private long pongLastTick;
+
+    // Brick breaker.
+    private final boolean[] bricks = new boolean[24];
+    private float brickBallX, brickBallY, brickVx, brickVy, brickPaddleX;
+    private int brickLeft, brickScore;
+    private boolean brickRunning, brickOver, brickWon;
+    private long brickLastTick;
+
+    // Dice duel.
+    private int diceP1, diceP2, diceP1Score, diceP2Score, diceTurn = 1;
+    private boolean diceOver;
+
+    // 4x4 Sudoku. 0 means empty.
+    private final int[] sudoku = new int[16];
+    private final int[] sudokuSolution = new int[16];
+    private final boolean[] sudokuFixed = new boolean[16];
+    private int sudokuSelected = -1, sudokuMistakes;
+    private boolean sudokuWon;
+
     // About / donation.
     private final Bitmap donateQr;
 
@@ -194,6 +301,9 @@ public final class GameHubView extends View {
         d = getResources().getDisplayMetrics().density;
         roundScreen = getResources().getConfiguration().isScreenRound();
         prefs = context.getSharedPreferences("wear_games", Context.MODE_PRIVATE);
+        menuScroller = new OverScroller(context);
+        Arrays.fill(aiMode, true);
+        savedResumeMode = prefs.getBoolean("has_save", false) ? prefs.getInt("last_mode", -1) : -1;
         best2048 = prefs.getInt("best_2048", 0);
         phoneLinkOpener = new PhoneLinkOpener(context);
         donateQr = BitmapFactory.decodeResource(getResources(), R.drawable.donate_qr);
@@ -206,7 +316,7 @@ public final class GameHubView extends View {
 
     private float dp(float v) { return v * d; }
     private float minSide() { return Math.min(getWidth(), getHeight()); }
-    private float safeWidthFactor() { return roundScreen ? 0.70f : 0.90f; }
+    private float safeWidthFactor() { return roundScreen ? 0.78f : 0.92f; }
 
     @Override protected void onDraw(Canvas c) {
         super.onDraw(c);
@@ -226,6 +336,7 @@ public final class GameHubView extends View {
         if (t < 1f) postInvalidateOnAnimation();
         drawResultOverlay(c);
         drawToastHint(c);
+        if (pendingModeChoice >= 0) drawModePicker(c);
     }
 
     private void drawCurrentScreen(Canvas c) {
@@ -254,6 +365,18 @@ public final class GameHubView extends View {
                     case LIGHTS_OUT: drawLightsOut(c); break;
                     case MINI_MINES: drawMiniMines(c); break;
                     case ROCK_PAPER_SCISSORS: drawRockPaperScissors(c); break;
+                    case CONNECT4: drawConnect4(c); break;
+                    case REVERSI: drawReversi(c); break;
+                    case MEMORY_MATCH: drawMemoryMatch(c); break;
+                    case MAZE: drawMaze(c); break;
+                    case NUMBER_TAP: drawNumberTap(c); break;
+                    case QUICK_MATH: drawQuickMath(c); break;
+                    case NIM: drawNim(c); break;
+                    case PONG: drawPong(c); break;
+                    case BRICK_BREAKER: drawBrickBreaker(c); break;
+                    case DICE_DUEL: drawDiceDuel(c); break;
+                    case SUDOKU: drawSudoku(c); break;
+                    case RECORDS: drawRecords(c); break;
                     default: drawMenu(c);
                 }
         }
@@ -264,68 +387,87 @@ public final class GameHubView extends View {
     private void drawMenu(Canvas c) {
         float s = minSide();
         float w = getWidth(), h = getHeight();
-        float titleY = roundScreen ? s * 0.105f : dp(34);
-        text(c, "腕上小游戏", w / 2f, titleY, clamp(s * 0.054f, dp(20), dp(27)), Color.WHITE, true);
-        text(c, "为小屏和旋钮手表优化", w / 2f, titleY + clamp(s * .045f, dp(18), dp(25)),
-                clamp(s * .026f, dp(10), dp(13)), Color.rgb(157, 169, 184), false);
+        float titleY = roundScreen ? s * 0.102f : dp(35);
+        text(c, "腕上小游戏", w / 2f, titleY, clamp(s * 0.058f, dp(21), dp(29)), Color.WHITE, true);
+        text(c, "24 款 · 4 分类 · 自动存档 / 战绩", w / 2f, titleY + clamp(s * .050f, dp(19), dp(26)),
+                clamp(s * .027f, dp(10), dp(14)), Color.rgb(157, 169, 184), false);
 
-        float viewportTop = titleY + s * .105f;
-        float viewportBottom = h - (roundScreen ? s * .15f : s * .04f);
-        float cardH = s * .17f;
-        float gap = s * .026f;
-        float contentH = MENU_TITLES.length * cardH + (MENU_TITLES.length - 1) * gap;
+        float viewportTop = titleY + s * .112f;
+        float viewportBottom = h - (roundScreen ? s * .105f : s * .025f);
+        float cardH = s * .185f;
+        float gap = s * .022f;
+        float sectionH = s * .078f;
+        float cursor = viewportTop;
+        if (savedResumeMode >= 0) cursor += cardH * .78f + gap;
+        String prev = "";
+        for (int i = 0; i < MENU_TITLES.length; i++) {
+            if (!MENU_CATEGORIES[i].equals(prev)) { cursor += sectionH; prev = MENU_CATEGORIES[i]; }
+            cursor += cardH + gap;
+        }
+        float contentH = Math.max(0, cursor - viewportTop - gap);
         menuMaxScroll = Math.max(0, contentH - (viewportBottom - viewportTop));
-        menuScroll = clamp(menuScroll, 0, menuMaxScroll);
+        float over = s * .13f;
+        menuScroll = clamp(menuScroll, -over, menuMaxScroll + over);
 
         c.save();
         c.clipRect(0, viewportTop, w, viewportBottom);
+        cursor = viewportTop - menuScroll;
+        if (savedResumeMode >= 0) {
+            float rh = cardH * .78f;
+            RectF rr = menuCardRect(cursor, rh);
+            p.setColor(Color.rgb(33, 67, 59)); c.drawRoundRect(rr, rh*.30f, rh*.30f, p);
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(s*.004f); p.setColor(Color.rgb(74, 210, 142)); c.drawRoundRect(rr, rh*.30f, rh*.30f, p); p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.rgb(74,210,142)); c.drawCircle(rr.left+rh*.42f, rr.centerY(), rh*.19f, p);
+            text(c, "▶", rr.left+rh*.42f, rr.centerY()+rh*.09f, rh*.25f, Color.rgb(12,31,26), true);
+            float tx=rr.left+rh*.75f;
+            textFit(c,"继续上次 · "+gameName(savedResumeMode),tx,rr.top+rh*.43f,rh*.25f,Color.WHITE,true,Paint.Align.LEFT,rr.right-tx-rh*.12f);
+            textFit(c,"自动存档已保留",tx,rr.top+rh*.70f,rh*.15f,Color.rgb(159,218,193),false,Paint.Align.LEFT,rr.right-tx-rh*.12f);
+            cursor += rh + gap;
+        }
+        prev = "";
         for (int i = 0; i < MENU_TITLES.length; i++) {
-            float y = viewportTop + i * (cardH + gap) - menuScroll;
-            if (y + cardH < viewportTop - cardH || y > viewportBottom + cardH) continue;
-            RectF r = menuCardRect(y, cardH);
-            float press = i == pressedMenuIndex && !menuDragging ? 0.96f : 1f;
-            float edgeScale = 1f;
-            if (roundScreen) {
-                float center = (viewportTop + viewportBottom) * .5f;
-                float half = Math.max(1f, (viewportBottom - viewportTop) * .5f);
-                float dist = Math.min(1f, Math.abs(r.centerY() - center) / half);
-                edgeScale = .88f + .12f * (1f - dist * dist);
+            if (!MENU_CATEGORIES[i].equals(prev)) {
+                text(c, MENU_CATEGORIES[i], w/2f, cursor + sectionH*.58f, sectionH*.31f, Color.rgb(122,139,160), true);
+                cursor += sectionH; prev = MENU_CATEGORIES[i];
             }
-            c.save();
-            c.scale(press * edgeScale, press * edgeScale, r.centerX(), r.centerY());
-            p.setColor(i == pressedMenuIndex ? Color.rgb(41, 49, 61) : Color.rgb(27, 33, 42));
-            c.drawRoundRect(r, cardH * .28f, cardH * .28f, p);
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(Math.max(1f, s * .0025f));
-            p.setColor(Color.rgb(58, 68, 82));
-            c.drawRoundRect(r, cardH * .28f, cardH * .28f, p);
-            p.setStyle(Paint.Style.FILL);
-
-            float iconR = cardH * .24f;
-            float iconX = r.left + cardH * .45f;
-            float iconY = r.centerY();
-            drawMenuIcon(c, MENU_MODES[i], iconX, iconY, iconR);
-
-            float tx = r.left + cardH * .83f;
-            textFit(c, MENU_TITLES[i], tx, y + cardH * .42f, cardH * .30f, Color.WHITE,
-                    true, Paint.Align.LEFT, r.right - tx - cardH * .14f);
-            textFit(c, MENU_SUBS[i], tx, y + cardH * .72f, cardH * .16f, Color.rgb(162, 172, 186),
-                    false, Paint.Align.LEFT, r.right - tx - cardH * .14f);
-            c.restore();
+            float y = cursor;
+            if (y + cardH >= viewportTop - cardH && y <= viewportBottom + cardH) {
+                RectF r = menuCardRect(y, cardH);
+                float press = i == pressedMenuIndex && !menuDragging ? 0.955f : 1f;
+                float edgeScale = 1f;
+                if (roundScreen) {
+                    float center = (viewportTop + viewportBottom) * .5f;
+                    float half = Math.max(1f, (viewportBottom - viewportTop) * .5f);
+                    float dist = Math.min(1f, Math.abs(r.centerY() - center) / half);
+                    edgeScale = .90f + .10f * (1f - dist * dist);
+                }
+                c.save(); c.scale(press * edgeScale, press * edgeScale, r.centerX(), r.centerY());
+                p.setColor(i == pressedMenuIndex ? Color.rgb(44, 53, 66) : Color.rgb(27, 33, 42));
+                c.drawRoundRect(r, cardH * .28f, cardH * .28f, p);
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(1f, s * .003f)); p.setColor(Color.rgb(58, 68, 82)); c.drawRoundRect(r, cardH * .28f, cardH * .28f, p); p.setStyle(Paint.Style.FILL);
+                float iconR = cardH * .235f, iconX = r.left + cardH * .43f, iconY = r.centerY();
+                drawMenuIcon(c, MENU_MODES[i], iconX, iconY, iconR);
+                float tx = r.left + cardH * .80f;
+                textFit(c, MENU_TITLES[i], tx, y + cardH * .42f, cardH * .31f, Color.WHITE, true, Paint.Align.LEFT, r.right - tx - cardH * .12f);
+                textFit(c, MENU_SUBS[i], tx, y + cardH * .72f, cardH * .16f, Color.rgb(162, 172, 186), false, Paint.Align.LEFT, r.right - tx - cardH * .12f);
+                c.restore();
+            }
+            cursor += cardH + gap;
         }
         c.restore();
 
         if (menuMaxScroll > 0) {
-            float trackTop = viewportTop + s * .02f;
-            float trackBottom = viewportBottom - s * .02f;
-            float thumbH = Math.max(s * .06f, (trackBottom - trackTop) * (viewportBottom - viewportTop) / contentH);
-            float t = menuMaxScroll == 0 ? 0 : menuScroll / menuMaxScroll;
-            float y = trackTop + (trackBottom - trackTop - thumbH) * t;
-            p.setColor(Color.argb(110, 155, 166, 181));
-            float x = w - (roundScreen ? s * .075f : dp(8));
-            c.drawRoundRect(new RectF(x - s * .006f, y, x + s * .006f, y + thumbH), s * .006f, s * .006f, p);
+            float trackTop = viewportTop + s * .018f, trackBottom = viewportBottom - s * .018f;
+            float thumbH = Math.max(s * .055f, (trackBottom-trackTop)*(viewportBottom-viewportTop)/Math.max(contentH,1));
+            float t = menuMaxScroll == 0 ? 0 : clamp(menuScroll/menuMaxScroll,0,1);
+            float y = trackTop + (trackBottom-trackTop-thumbH)*t;
+            p.setColor(Color.argb(125,155,166,181)); float x=w-(roundScreen?s*.060f:dp(7));
+            c.drawRoundRect(new RectF(x-s*.006f,y,x+s*.006f,y+thumbH),s*.006f,s*.006f,p);
         }
     }
+
+    private float menuViewportTop() { float s=minSide(); float titleY=roundScreen?s*.102f:dp(35); return titleY+s*.112f; }
+    private float menuViewportBottom() { return getHeight()-(roundScreen?minSide()*.105f:minSide()*.025f); }
 
     private RectF menuCardRect(float y, float cardH) {
         float cardW = Math.min(getWidth() * safeWidthFactor(), dp(310));
@@ -374,6 +516,30 @@ public final class GameHubView extends View {
                 p.setColor(Color.rgb(72,82,96));c.drawCircle(x,y,r*.55f,p);p.setColor(Color.rgb(255,91,91));c.drawCircle(x,y,r*.23f,p);for(int i=0;i<8;i++){double a=i*Math.PI/4;c.drawRect((float)(x+Math.cos(a)*r*.72-r*.06),(float)(y+Math.sin(a)*r*.72-r*.06),(float)(x+Math.cos(a)*r*.72+r*.06),(float)(y+Math.sin(a)*r*.72+r*.06),p);} break;
             case ROCK_PAPER_SCISSORS:
                 text(c,"拳",x-r*.48f,y+r*.18f,r*.62f,Color.WHITE,true);text(c,"剪",x+r*.42f,y+r*.18f,r*.62f,Color.rgb(255,204,86),true); break;
+            case CONNECT4:
+                for(int rr=0;rr<2;rr++)for(int cc=0;cc<3;cc++){p.setColor(((rr+cc)&1)==0?Color.rgb(255,91,91):Color.rgb(255,205,70));c.drawCircle(x+(cc-1)*r*.62f,y+(rr-.5f)*r*.58f,r*.23f,p);} break;
+            case REVERSI:
+                p.setColor(Color.rgb(34,143,84));c.drawCircle(x,y,r,p);p.setColor(Color.WHITE);c.drawCircle(x-r*.28f,y,r*.34f,p);p.setColor(Color.rgb(20,24,30));c.drawCircle(x+r*.28f,y,r*.34f,p); break;
+            case MEMORY_MATCH:
+                p.setColor(Color.rgb(137,98,255));c.drawRoundRect(new RectF(x-r*.86f,y-r*.72f,x-r*.06f,y+r*.72f),r*.16f,r*.16f,p);p.setColor(Color.rgb(255,113,151));c.drawRoundRect(new RectF(x+r*.06f,y-r*.72f,x+r*.86f,y+r*.72f),r*.16f,r*.16f,p);text(c,"★",x,y+r*.22f,r*.62f,Color.WHITE,true); break;
+            case MAZE:
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(r*.16f);p.setColor(Color.rgb(93,167,255));c.drawRect(x-r*.75f,y-r*.75f,x+r*.75f,y+r*.75f,p);c.drawLine(x-r*.25f,y-r*.75f,x-r*.25f,y+r*.20f,p);c.drawLine(x-r*.25f,y+r*.20f,x+r*.35f,y+r*.20f,p);c.drawLine(x+r*.35f,y-r*.20f,x+r*.35f,y+r*.75f,p);p.setStyle(Paint.Style.FILL); break;
+            case NUMBER_TAP:
+                p.setColor(Color.rgb(63,142,255));c.drawCircle(x-r*.38f,y-r*.30f,r*.38f,p);p.setColor(Color.rgb(77,199,132));c.drawCircle(x+r*.38f,y+r*.30f,r*.38f,p);text(c,"1",x-r*.38f,y-r*.12f,r*.46f,Color.WHITE,true);text(c,"16",x+r*.38f,y+r*.48f,r*.34f,Color.WHITE,true); break;
+            case QUICK_MATH:
+                p.setColor(Color.rgb(255,176,65));c.drawRoundRect(new RectF(x-r,y-r,x+r,y+r),r*.25f,r*.25f,p);text(c,"+×",x,y+r*.24f,r*.62f,Color.WHITE,true); break;
+            case NIM:
+                p.setColor(Color.rgb(255,190,72));for(int i=-1;i<=1;i++)for(int j=-1;j<=1;j++)if(!(i==1&&j==1))c.drawCircle(x+i*r*.48f,y+j*r*.48f,r*.18f,p); break;
+            case PONG:
+                p.setColor(Color.WHITE);c.drawRoundRect(new RectF(x-r*.82f,y-r*.62f,x-r*.64f,y+r*.62f),r*.09f,r*.09f,p);c.drawRoundRect(new RectF(x+r*.64f,y-r*.62f,x+r*.82f,y+r*.62f),r*.09f,r*.09f,p);p.setColor(Color.rgb(86,164,255));c.drawCircle(x,y,r*.22f,p); break;
+            case BRICK_BREAKER:
+                for(int rr=0;rr<2;rr++)for(int cc=0;cc<3;cc++){p.setColor(rr==0?Color.rgb(255,112,112):Color.rgb(255,190,70));float l=x-r*.88f+cc*r*.60f,t=y-r*.72f+rr*r*.42f;c.drawRoundRect(new RectF(l,t,l+r*.50f,t+r*.30f),r*.08f,r*.08f,p);}p.setColor(Color.WHITE);c.drawRoundRect(new RectF(x-r*.62f,y+r*.58f,x+r*.62f,y+r*.76f),r*.09f,r*.09f,p); break;
+            case DICE_DUEL:
+                p.setColor(Color.rgb(245,245,248));c.drawRoundRect(new RectF(x-r*.78f,y-r*.78f,x+r*.78f,y+r*.78f),r*.22f,r*.22f,p);p.setColor(Color.rgb(38,45,56));for(int sx=-1;sx<=1;sx+=2)for(int sy=-1;sy<=1;sy+=2)c.drawCircle(x+sx*r*.34f,y+sy*r*.34f,r*.12f,p);c.drawCircle(x,y,r*.12f,p); break;
+            case SUDOKU:
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(r*.10f);p.setColor(Color.rgb(122,181,255));c.drawRect(x-r*.78f,y-r*.78f,x+r*.78f,y+r*.78f,p);c.drawLine(x,y-r*.78f,x,y+r*.78f,p);c.drawLine(x-r*.78f,y,x+r*.78f,y,p);p.setStyle(Paint.Style.FILL);text(c,"4",x-r*.38f,y-r*.16f,r*.42f,Color.WHITE,true);text(c,"2",x+r*.38f,y+r*.54f,r*.42f,Color.WHITE,true); break;
+            case RECORDS:
+                p.setColor(Color.rgb(72,153,255));for(int i=0;i<3;i++){float bh=r*(.45f+i*.30f);c.drawRoundRect(new RectF(x-r*.76f+i*r*.53f,y+r*.72f-bh,x-r*.39f+i*r*.53f,y+r*.72f),r*.08f,r*.08f,p);} break;
             case FEEDBACK:
                 p.setColor(Color.rgb(74,148,255));c.drawRoundRect(new RectF(x-r,y-r*.72f,x+r,y+r*.52f),r*.35f,r*.35f,p);
                 p.setColor(Color.WHITE);for(int i=-1;i<=1;i++)c.drawCircle(x+i*r*.34f,y-r*.08f,r*.09f,p);
@@ -464,7 +630,9 @@ public final class GameHubView extends View {
     // ---------- Gomoku ----------
 
     private void drawGomoku(Canvas c) {
-        drawGameHeader(c, "五子棋", message, false);
+        updateGomokuAi();
+        String gm = aiMode[GOMOKU] ? "单人 · " + message : "双人 · " + message;
+        drawGameHeader(c, "五子棋", gm, false);
         float cell=baseGomokuCell()*zoom;
         float cx=getWidth()/2f+panX, top=headerBottom()+minSide()*.03f+panY, left=cx-7f*cell;
         RectF bg=new RectF(left-cell*.5f,top-cell*.5f,left+14*cell+cell*.5f,top+14*cell+cell*.5f);
@@ -734,8 +902,12 @@ public final class GameHubView extends View {
     private void drawTicTacToe(Canvas c) {
         updateTicTacToeAi();
         float s = minSide(), w = getWidth();
-        String sub = tttOver ? (tttResult == 1 ? "你赢了" : tttResult == -1 ? "手表获胜" : "平局")
-                : (tttAiDue > 0 ? "手表思考中…" : "你是 X · 点格子落子");
+        String sub;
+        if (tttOver) {
+            if (aiMode[TICTACTOE]) sub = tttResult == 1 ? "你赢了" : tttResult == -1 ? "手表获胜" : "平局";
+            else sub = tttResult == 1 ? "X 获胜" : tttResult == -1 ? "O 获胜" : "平局";
+        } else if (aiMode[TICTACTOE]) sub = tttAiDue > 0 ? "单人 · 手表思考中…" : "单人 · 你是 X";
+        else sub = "双人 · " + (tttTurn == 1 ? "X 回合" : "O 回合");
         drawGameHeader(c, "井字棋", sub, false);
         float size = s * (roundScreen ? .49f : .57f);
         float left = (w - size) / 2f, top = s * .225f, cell = size / 3f;
@@ -773,29 +945,31 @@ public final class GameHubView extends View {
     }
 
     private void handleTicTacToeTap(float x, float y) {
-        if (tttOver || tttAiDue > 0) return;
+        if (tttOver || (aiMode[TICTACTOE] && tttAiDue > 0)) return;
         float s = minSide(), size = s * (roundScreen ? .49f : .57f), left = (getWidth() - size) / 2f, top = s * .225f;
         if (x < left || x >= left + size || y < top || y >= top + size) return;
         int col = Math.min(2, (int)((x - left) / (size / 3f)));
         int row = Math.min(2, (int)((y - top) / (size / 3f)));
         int idx = row * 3 + col;
         if (ttt[idx] != 0) return;
-        placeTttMark(idx, 1);
+        placeTttMark(idx, tttTurn);
         int winner = tttWinner();
-        if (winner == 1) finishTtt(1);
+        if (winner != 0) finishTtt(winner == 1 ? 1 : -1);
         else if (tttFull()) finishTtt(2);
-        else tttAiDue = SystemClock.elapsedRealtime() + 330;
+        else if (aiMode[TICTACTOE]) { tttTurn = 2; tttAiDue = SystemClock.elapsedRealtime() + 330; }
+        else tttTurn = tttTurn == 1 ? 2 : 1;
         invalidate();
     }
 
     private void updateTicTacToeAi() {
-        if (tttOver || tttAiDue <= 0 || SystemClock.elapsedRealtime() < tttAiDue) return;
+        if (!aiMode[TICTACTOE] || tttOver || tttAiDue <= 0 || SystemClock.elapsedRealtime() < tttAiDue) return;
         tttAiDue = 0;
         int idx = chooseTttAiMove();
         if (idx >= 0) placeTttMark(idx, 2);
         int winner = tttWinner();
         if (winner == 2) finishTtt(-1);
         else if (tttFull()) finishTtt(2);
+        else tttTurn = 1;
         postInvalidateOnAnimation();
     }
 
@@ -826,9 +1000,15 @@ public final class GameHubView extends View {
     private boolean tttFull() { for (int v : ttt) if (v == 0) return false; return true; }
     private void finishTtt(int result) {
         tttOver = true; tttResult = result; tttAiDue = 0;
-        if (result == 1) showResult(1, "你赢了！", "井字棋挑战成功");
-        else if (result == -1) showResult(-1, "这局输了", "点“重开”再挑战一次");
-        else showResult(2, "平局", "旗鼓相当，再来一局");
+        if (aiMode[TICTACTOE]) {
+            if (result == 1) showResult(1, "你赢了！", "井字棋挑战成功");
+            else if (result == -1) showResult(-1, "这局输了", "点“重开”再挑战一次");
+            else showResult(2, "平局", "旗鼓相当，再来一局");
+        } else {
+            if (result == 1) showResult(1, "X 获胜！", "双人对局结束");
+            else if (result == -1) showResult(1, "O 获胜！", "双人对局结束");
+            else showResult(2, "平局", "双人对局结束");
+        }
     }
 
     // ---------- Color Hunt ----------
@@ -1005,18 +1185,146 @@ public final class GameHubView extends View {
     private int rpsRound(int a,int b){if(a==b)return 0;return(a==1&&b==3)||(a==2&&b==1)||(a==3&&b==2)?1:-1;}
     private String rpsEmoji(int v){return v==1?"拳":v==2?"掌":"剪";}
 
+    // ---------- Connect Four ----------
+
+    private void drawConnect4(Canvas c){
+        updateConnect4Ai();
+        float s=minSide(),w=getWidth(),size=s*(roundScreen?.58f:.66f),left=(w-size)/2f,top=s*.205f,cell=size/7f;
+        String sub=connect4Over?"对局结束":(aiMode[CONNECT4]?(connect4Turn==1?"单人 · 你是红方":"单人 · 手表思考中…"):("双人 · "+(connect4Turn==1?"红方回合":"黄方回合")));
+        drawGameHeader(c,"四子棋",sub,false);
+        p.setColor(Color.rgb(37,87,166));c.drawRoundRect(new RectF(left,top,left+size,top+cell*6),s*.03f,s*.03f,p);
+        for(int row=0;row<6;row++)for(int col=0;col<7;col++){
+            int idx=row*7+col;float cx=left+(col+.5f)*cell,cy=top+(row+.5f)*cell;
+            p.setColor(connect4[idx]==0?Color.rgb(15,22,31):(connect4[idx]==1?Color.rgb(255,88,96):Color.rgb(255,207,71)));
+            c.drawCircle(cx,cy,cell*.36f,p);
+            if(idx==connect4Last)ring(c,cx,cy,cell*.39f,Color.WHITE);
+        }
+        drawBottomBar(c,new String[]{"菜单","重开"},false);
+    }
+
+    private void handleConnect4Tap(float x,float y){
+        if(connect4Over||(aiMode[CONNECT4]&&connect4Turn==2))return;
+        float s=minSide(),size=s*(roundScreen?.58f:.66f),left=(getWidth()-size)/2f,top=s*.205f,cell=size/7f;
+        if(x<left||x>=left+size||y<top||y>top+cell*6)return;int col=Math.min(6,(int)((x-left)/cell));connect4Drop(col);
+    }
+
+    private boolean connect4Drop(int col){
+        for(int row=5;row>=0;row--){int idx=row*7+col;if(connect4[idx]!=0)continue;int who=connect4Turn;connect4[idx]=who;connect4Last=idx;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            if(connect4Win(idx,who)){connect4Over=true;if(aiMode[CONNECT4]&&who==2)showResult(-1,"手表四连","这局由手表获胜");else showResult(1,(who==1?"红方":"黄方")+"获胜！","四子连线完成");}
+            else if(connect4Full()){connect4Over=true;showResult(2,"平局","棋盘已经放满");}
+            else{connect4Turn=3-connect4Turn;if(aiMode[CONNECT4]&&connect4Turn==2)connect4AiDue=SystemClock.elapsedRealtime()+260;}
+            invalidate();return true;}
+        showToastHint("这一列已经满了");return false;
+    }
+
+    private boolean connect4Win(int idx,int who){int r=idx/7,c=idx%7;int[][] ds={{1,0},{0,1},{1,1},{1,-1}};for(int[] d0:ds){int n=1;for(int sign:new int[]{-1,1}){int rr=r+d0[1]*sign,cc=c+d0[0]*sign;while(rr>=0&&rr<6&&cc>=0&&cc<7&&connect4[rr*7+cc]==who){n++;rr+=d0[1]*sign;cc+=d0[0]*sign;}}if(n>=4)return true;}return false;}
+    private boolean connect4Full(){for(int i=0;i<7;i++)if(connect4[i]==0)return false;return true;}
+    private void updateConnect4Ai(){if(!aiMode[CONNECT4]||connect4Over||connect4Turn!=2||connect4AiDue<=0)return;long now=SystemClock.elapsedRealtime();if(now<connect4AiDue){postInvalidateDelayed(Math.max(16,connect4AiDue-now));return;}connect4AiDue=0;int col=chooseConnect4Ai();connect4Drop(col);}
+    private int chooseConnect4Ai(){for(int who:new int[]{2,1})for(int col=0;col<7;col++){int idx=connect4SimDrop(col,who);if(idx>=0){boolean win=connect4Win(idx,who);connect4[idx]=0;if(win)return col;}}int[] pref={3,2,4,1,5,0,6};List<Integer> free=new ArrayList<>();for(int col:pref)if(connect4[col]==0)free.add(col);return free.isEmpty()?0:free.get(random.nextInt(Math.min(3,free.size())));}
+    private int connect4SimDrop(int col,int who){for(int row=5;row>=0;row--){int idx=row*7+col;if(connect4[idx]==0){connect4[idx]=who;return idx;}}return -1;}
+
+    // ---------- Reversi 6x6 ----------
+
+    private void drawReversi(Canvas c){
+        updateReversiAi();
+        float s=minSide(),w=getWidth(),size=s*(roundScreen?.56f:.64f),left=(w-size)/2f,top=s*.205f,cell=size/6f;
+        int black=0,white=0;for(int v:reversi){if(v==1)black++;else if(v==2)white++;}
+        String sub=reversiOver?("黑 "+black+" · 白 "+white):(aiMode[REVERSI]?(reversiTurn==1?"单人 · 你执黑":"单人 · 手表思考中…"):("双人 · "+(reversiTurn==1?"黑方回合":"白方回合")));
+        drawGameHeader(c,"黑白棋",sub,false);
+        p.setColor(Color.rgb(41,126,78));c.drawRoundRect(new RectF(left,top,left+size,top+size),s*.025f,s*.025f,p);
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1f,s*.003f));p.setColor(Color.rgb(25,76,50));for(int i=1;i<6;i++){c.drawLine(left+i*cell,top,left+i*cell,top+size,p);c.drawLine(left,top+i*cell,left+size,top+i*cell,p);}p.setStyle(Paint.Style.FILL);
+        for(int i=0;i<36;i++){int col=i%6,row=i/6;float cx=left+(col+.5f)*cell,cy=top+(row+.5f)*cell;if(reversi[i]!=0){p.setColor(reversi[i]==1?Color.rgb(25,28,31):Color.rgb(240,242,240));c.drawCircle(cx,cy,cell*.36f,p);}else if(!reversiOver&&(!aiMode[REVERSI]||reversiTurn==1)&&reversiFlips(i,reversiTurn,null)>0){p.setColor(Color.argb(125,220,235,225));c.drawCircle(cx,cy,cell*.09f,p);}}
+        drawBottomBar(c,new String[]{"菜单","重开"},false);
+    }
+
+    private void handleReversiTap(float x,float y){if(reversiOver||(aiMode[REVERSI]&&reversiTurn==2))return;float s=minSide(),size=s*(roundScreen?.56f:.64f),left=(getWidth()-size)/2f,top=s*.205f,cell=size/6f;if(x<left||x>=left+size||y<top||y>=top+size)return;int col=Math.min(5,(int)((x-left)/cell)),row=Math.min(5,(int)((y-top)/cell));reversiMove(row*6+col);}
+    private boolean reversiMove(int idx){if(idx<0||idx>=36||reversi[idx]!=0)return false;List<Integer> flips=new ArrayList<>();if(reversiFlips(idx,reversiTurn,flips)==0)return false;int who=reversiTurn;reversi[idx]=who;for(int f:flips)reversi[f]=who;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);reversiTurn=3-who;if(!reversiHasMove(reversiTurn)){reversiTurn=who;if(!reversiHasMove(reversiTurn)){finishReversi();return true;}showToastHint("对方无棋可下，继续");}if(aiMode[REVERSI]&&reversiTurn==2)reversiAiDue=SystemClock.elapsedRealtime()+300;invalidate();return true;}
+    private int reversiFlips(int idx,int who,List<Integer> out){if(reversi[idx]!=0)return 0;int r=idx/6,c=idx%6,total=0;int other=3-who;for(int dr=-1;dr<=1;dr++)for(int dc=-1;dc<=1;dc++){if(dr==0&&dc==0)continue;int rr=r+dr,cc=c+dc;List<Integer> line=new ArrayList<>();while(rr>=0&&rr<6&&cc>=0&&cc<6&&reversi[rr*6+cc]==other){line.add(rr*6+cc);rr+=dr;cc+=dc;}if(!line.isEmpty()&&rr>=0&&rr<6&&cc>=0&&cc<6&&reversi[rr*6+cc]==who){total+=line.size();if(out!=null)out.addAll(line);}}return total;}
+    private boolean reversiHasMove(int who){for(int i=0;i<36;i++)if(reversi[i]==0&&reversiFlips(i,who,null)>0)return true;return false;}
+    private void updateReversiAi(){if(!aiMode[REVERSI]||reversiOver||reversiTurn!=2||reversiAiDue<=0)return;long now=SystemClock.elapsedRealtime();if(now<reversiAiDue){postInvalidateDelayed(Math.max(16,reversiAiDue-now));return;}reversiAiDue=0;int best=-1,bestN=-1;for(int i=0;i<36;i++){int n=reversiFlips(i,2,null);if(n>bestN){bestN=n;best=i;}}if(best>=0)reversiMove(best);}
+    private void finishReversi(){reversiOver=true;int b=0,w=0;for(int v:reversi){if(v==1)b++;else if(v==2)w++;}if(b==w)showResult(2,"平局",b+" : "+w);else if(aiMode[REVERSI]){if(b>w)showResult(1,"你赢了！","黑 "+b+" · 白 "+w);else showResult(-1,"手表获胜","黑 "+b+" · 白 "+w);}else showResult(1,(b>w?"黑方":"白方")+"获胜！","黑 "+b+" · 白 "+w);}
+
+    // ---------- Memory Match ----------
+
+    private void drawMemoryMatch(Canvas c){
+        updateMemoryMatch();float s=minSide(),w=getWidth(),size=s*(roundScreen?.54f:.62f),left=(w-size)/2f,top=s*.205f,gap=s*.012f,cell=(size-gap*3)/4f;
+        drawGameHeader(c,"记忆配对",memoryWon?("完成 · "+memoryMoves+" 次翻牌"):("已配对 "+memoryPairs+" / 8 · "+memoryMoves+" 次"),false);
+        String[] marks={"●","▲","■","◆","★","♥","月","日"};
+        for(int i=0;i<16;i++){int col=i%4,row=i/4;float l=left+col*(cell+gap),t=top+row*(cell+gap);boolean open=memoryMatched[i]||i==memoryFirst||i==memorySecond;p.setColor(open?Color.rgb(66,82,103):Color.rgb(35,43,55));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.17f,cell*.17f,p);if(open)text(c,marks[memoryCards[i]],l+cell/2,t+cell*.65f,cell*.39f,Color.WHITE,true);else{text(c,"?",l+cell/2,t+cell*.66f,cell*.38f,Color.rgb(115,132,153),true);}}
+        if(memoryHideAt>0)postInvalidateDelayed(32);drawBottomBar(c,new String[]{"菜单","重开"},false);
+    }
+    private void updateMemoryMatch(){if(memoryHideAt>0&&SystemClock.elapsedRealtime()>=memoryHideAt){memoryFirst=memorySecond=-1;memoryHideAt=0;invalidate();}}
+    private void handleMemoryTap(float x,float y){updateMemoryMatch();if(memoryWon||memoryHideAt>0)return;float s=minSide(),size=s*(roundScreen?.54f:.62f),left=(getWidth()-size)/2f,top=s*.205f,gap=s*.012f,cell=(size-gap*3)/4f;if(x<left||x>=left+size||y<top||y>=top+size)return;int col=(int)((x-left)/(cell+gap)),row=(int)((y-top)/(cell+gap));if(col>3||row>3)return;float ix=(x-left)-col*(cell+gap),iy=(y-top)-row*(cell+gap);if(ix>cell||iy>cell)return;int idx=row*4+col;if(memoryMatched[idx]||idx==memoryFirst)return;if(memoryFirst<0){memoryFirst=idx;}else{memorySecond=idx;memoryMoves++;if(memoryCards[memoryFirst]==memoryCards[memorySecond]){memoryMatched[memoryFirst]=memoryMatched[memorySecond]=true;memoryPairs++;memoryFirst=memorySecond=-1;if(memoryPairs==8){memoryWon=true;showResult(1,"全部配对！","用了 "+memoryMoves+" 次翻牌");}}else memoryHideAt=SystemClock.elapsedRealtime()+650;}performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
+
+    // ---------- Maze ----------
+
+    private void drawMaze(Canvas c){float s=minSide(),w=getWidth(),size=s*(roundScreen?.56f:.64f),left=(w-size)/2f,top=s*.205f,cell=size/9f;drawGameHeader(c,"迷宫逃脱",mazeWon?("到达出口 · "+mazeMoves+" 步"):("滑动移动 · "+mazeMoves+" 步"),false);p.setColor(Color.rgb(20,27,36));c.drawRoundRect(new RectF(left,top,left+size,top+size),s*.02f,s*.02f,p);p.setColor(Color.rgb(104,126,151));p.setStrokeWidth(Math.max(1.5f,s*.006f));for(int i=0;i<81;i++){int r=i/9,col=i%9;float l=left+col*cell,t=top+r*cell;if((mazeWalls[i]&1)!=0)c.drawLine(l,t,l+cell,t,p);if((mazeWalls[i]&2)!=0)c.drawLine(l+cell,t,l+cell,t+cell,p);if((mazeWalls[i]&4)!=0)c.drawLine(l,t+cell,l+cell,t+cell,p);if((mazeWalls[i]&8)!=0)c.drawLine(l,t,l,t+cell,p);}float ex=left+(mazeExit%9+.5f)*cell,ey=top+(mazeExit/9+.5f)*cell;p.setColor(Color.rgb(74,210,142));c.drawCircle(ex,ey,cell*.22f,p);float px=left+(mazePlayer%9+.5f)*cell,py=top+(mazePlayer/9+.5f)*cell;p.setColor(Color.rgb(83,154,255));c.drawCircle(px,py,cell*.28f,p);drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void handleMazeSwipe(int dir){if(mazeWon)return;int wall=dir==0?1:dir==1?2:dir==2?4:8;if((mazeWalls[mazePlayer]&wall)!=0){performHapticFeedback(HapticFeedbackConstants.REJECT);return;}if(dir==0)mazePlayer-=9;else if(dir==1)mazePlayer++;else if(dir==2)mazePlayer+=9;else mazePlayer--;mazeMoves++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(mazePlayer==mazeExit){mazeWon=true;showResult(1,"走出迷宫！","用了 "+mazeMoves+" 步");}invalidate();}
+
+    // ---------- Number Tap ----------
+
+    private void drawNumberTap(Canvas c){float s=minSide(),w=getWidth(),size=s*(roundScreen?.54f:.62f),left=(w-size)/2f,top=s*.205f,gap=s*.012f,cell=(size-gap*3)/4f;long elapsed=Math.max(0,(numberTapOver&&numberTapFinish>0?numberTapFinish:SystemClock.elapsedRealtime())-numberTapStart);drawGameHeader(c,"数字连点",numberTapOver?("完成 · "+(elapsed/1000f)+" 秒"):("下一个 "+(numberTapNext+1)+" · "+String.format("%.1f",elapsed/1000f)+" 秒"),false);for(int i=0;i<16;i++){int col=i%4,row=i/4;float l=left+col*(cell+gap),t=top+row*(cell+gap);int n=numberTapOrder[i];boolean done=n<=numberTapNext;p.setColor(done?Color.rgb(28,59,49):Color.rgb(42,51,65));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.17f,cell*.17f,p);text(c,String.valueOf(n),l+cell/2,t+cell*.65f,cell*.34f,done?Color.rgb(84,188,131):Color.WHITE,true);}if(!numberTapOver)postInvalidateDelayed(100);drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void handleNumberTap(float x,float y){if(numberTapOver)return;float s=minSide(),size=s*(roundScreen?.54f:.62f),left=(getWidth()-size)/2f,top=s*.205f,gap=s*.012f,cell=(size-gap*3)/4f;if(x<left||x>=left+size||y<top||y>=top+size)return;int col=(int)((x-left)/(cell+gap)),row=(int)((y-top)/(cell+gap));if(col>3||row>3)return;int idx=row*4+col;if(numberTapOrder[idx]!=numberTapNext+1){performHapticFeedback(HapticFeedbackConstants.REJECT);return;}numberTapNext++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(numberTapNext>=16){numberTapOver=true;numberTapFinish=SystemClock.elapsedRealtime();long ms=numberTapFinish-numberTapStart;showResult(1,"16 个数字完成！",String.format("%.1f 秒",ms/1000f));}invalidate();}
+
+    // ---------- Quick Math ----------
+
+    private void drawQuickMath(Canvas c){long now=SystemClock.elapsedRealtime(),remain=Math.max(0,mathDeadline-now);if(!mathOver&&remain==0){mathOver=true;showResult(mathScore>=10?1:2,"时间到","答对 "+mathScore+" · 答错 "+mathWrong);}drawGameHeader(c,"极速心算",mathOver?("得分 "+mathScore):("剩余 "+((remain+999)/1000)+" 秒 · "+mathScore+" 分"),false);float s=minSide(),w=getWidth();text(c,mathA+mathOperator()+mathB+" = ?",w/2,s*.34f,s*.075f,Color.WHITE,true);float bw=s*.25f,bh=s*.13f,gap=s*.025f,left=w/2-bw-gap/2,top=s*.43f;for(int i=0;i<4;i++){int col=i%2,row=i/2;RectF r=new RectF(left+col*(bw+gap),top+row*(bh+gap),left+col*(bw+gap)+bw,top+row*(bh+gap)+bh);p.setColor(Color.rgb(41,50,64));c.drawRoundRect(r,bh*.28f,bh*.28f,p);text(c,String.valueOf(mathChoices[i]),r.centerX(),r.centerY()+bh*.12f,bh*.38f,Color.WHITE,true);}if(!mathOver)postInvalidateDelayed(100);drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private String mathOperator(){return mathOp==0?" + ":mathOp==1?" − ":" × ";}
+    private void handleQuickMath(float x,float y){if(mathOver)return;float s=minSide(),w=getWidth(),bw=s*.25f,bh=s*.13f,gap=s*.025f,left=w/2-bw-gap/2,top=s*.43f;for(int i=0;i<4;i++){int col=i%2,row=i/2;RectF r=new RectF(left+col*(bw+gap),top+row*(bh+gap),left+col*(bw+gap)+bw,top+row*(bh+gap)+bh);if(r.contains(x,y)){if(mathChoices[i]==mathAnswer){mathScore++;performHapticFeedback(HapticFeedbackConstants.CONFIRM);}else{mathWrong++;performHapticFeedback(HapticFeedbackConstants.REJECT);}newMathProblem();invalidate();return;}}}
+    private void newMathProblem(){int type=random.nextInt(3);mathOp=type;if(type==0){mathA=2+random.nextInt(18);mathB=1+random.nextInt(15);mathAnswer=mathA+mathB;}else if(type==1){mathA=5+random.nextInt(20);mathB=1+random.nextInt(mathA);mathAnswer=mathA-mathB;}else{mathA=2+random.nextInt(8);mathB=2+random.nextInt(8);mathAnswer=mathA*mathB;}for(int i=0;i<4;i++)mathChoices[i]=mathAnswer;int correct=random.nextInt(4);for(int i=0;i<4;i++)if(i!=correct){int v;do{v=Math.max(0,mathAnswer-5+random.nextInt(11));}while(v==mathAnswer||contains(mathChoices,v,i));mathChoices[i]=v;}mathChoices[correct]=mathAnswer;}
+    private boolean contains(int[] a,int v,int before){for(int i=0;i<before;i++)if(a[i]==v)return true;return false;}
+
+    // ---------- Nim ----------
+
+    private void drawNim(Canvas c){updateNimAi();float s=minSide(),w=getWidth();String sub=nimOver?"对局结束":(aiMode[NIM]?(nimTurn==1?"单人 · 轮到你":"单人 · 手表思考中…"):("双人 · 玩家 "+nimTurn+" 回合"));drawGameHeader(c,"Nim 取石",sub,false);text(c,"剩余 "+nimStones+" 颗",w/2,s*.26f,s*.050f,Color.WHITE,true);float startX=w/2-s*.26f,startY=s*.32f;for(int i=0;i<nimStones;i++){int col=i%7,row=i/7;float cx=startX+col*s*.087f,cy=startY+row*s*.073f;p.setColor(Color.rgb(255,188,74));c.drawCircle(cx,cy,s*.023f,p);}float bw=s*.16f,bh=s*.12f,gap=s*.018f,total=bw*3+gap*2,left=(w-total)/2f,top=s*.55f;for(int i=0;i<3;i++){RectF r=new RectF(left+i*(bw+gap),top,left+i*(bw+gap)+bw,top+bh);p.setColor(Color.rgb(42,51,65));c.drawRoundRect(r,bh*.34f,bh*.34f,p);text(c,"取 "+(i+1),r.centerX(),r.centerY()+bh*.10f,bh*.29f,Color.WHITE,true);}drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void handleNimTap(float x,float y){if(nimOver||(aiMode[NIM]&&nimTurn==2))return;float s=minSide(),w=getWidth(),bw=s*.16f,bh=s*.12f,gap=s*.018f,total=bw*3+gap*2,left=(w-total)/2f,top=s*.55f;if(y<top||y>top+bh)return;for(int i=0;i<3;i++){RectF r=new RectF(left+i*(bw+gap),top,left+i*(bw+gap)+bw,top+bh);if(r.contains(x,y)){nimTake(i+1);return;}}}
+    private void nimTake(int n){n=Math.min(n,nimStones);nimStones-=n;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(nimStones<=0){nimOver=true;if(aiMode[NIM]&&nimTurn==2)showResult(-1,"手表拿到最后一颗","这局由手表获胜");else showResult(1,(aiMode[NIM]?"你":"玩家 "+nimTurn)+"获胜！","拿到最后一颗石子");return;}nimTurn=3-nimTurn;if(aiMode[NIM]&&nimTurn==2)nimAiDue=SystemClock.elapsedRealtime()+350;invalidate();}
+    private void updateNimAi(){if(!aiMode[NIM]||nimOver||nimTurn!=2||nimAiDue<=0)return;long now=SystemClock.elapsedRealtime();if(now<nimAiDue){postInvalidateDelayed(Math.max(16,nimAiDue-now));return;}nimAiDue=0;int take=nimStones%4;if(take==0)take=1+random.nextInt(Math.min(3,nimStones));nimTake(take);}
+
+    // ---------- Pong ----------
+
+    private RectF pongBoard(){float s=minSide(),size=s*(roundScreen?.52f:.60f);return new RectF((getWidth()-size)/2f,s*.205f,(getWidth()+size)/2f,s*.205f+size);}
+    private void drawPong(Canvas c){RectF b=pongBoard();if(pongX==0&&b.width()>0)initPongGeometry();updatePong(b);String sub=aiMode[PONG]?"单人 · 下方挡板是你":"双人 · 上下半屏各控制一方";drawGameHeader(c,"腕上乒乓",pongOver?("比分 "+pongBottomScore+" : "+pongTopScore):sub,false);p.setColor(Color.rgb(17,25,35));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);p.setColor(Color.rgb(64,78,96));p.setStrokeWidth(minSide()*.004f);c.drawLine(b.left,b.centerY(),b.right,b.centerY(),p);float pw=b.width()*.30f,ph=minSide()*.025f;p.setColor(Color.WHITE);c.drawRoundRect(new RectF(pongBottomX-pw/2,b.bottom-ph*2,pongBottomX+pw/2,b.bottom-ph),ph/2,ph/2,p);c.drawRoundRect(new RectF(pongTopX-pw/2,b.top+ph,pongTopX+pw/2,b.top+ph*2),ph/2,ph/2,p);p.setColor(Color.rgb(88,191,255));c.drawCircle(pongX,pongY,minSide()*.018f,p);text(c,pongTopScore+"",b.centerX(),b.top+minSide()*.09f,minSide()*.040f,Color.rgb(145,160,180),true);text(c,pongBottomScore+"",b.centerX(),b.bottom-minSide()*.055f,minSide()*.040f,Color.rgb(145,160,180),true);if(!pongRunning&&!pongOver)text(c,"拖动挡板开始",b.centerX(),b.centerY()+minSide()*.012f,minSide()*.029f,Color.rgb(185,196,210),true);if(pongRunning)postInvalidateOnAnimation();drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void handlePongTouch(float x,float y){if(pongOver)return;RectF b=pongBoard();float pw=b.width()*.30f;if(aiMode[PONG]||y>=b.centerY())pongBottomX=clamp(x,b.left+pw/2,b.right-pw/2);else pongTopX=clamp(x,b.left+pw/2,b.right-pw/2);if(!pongRunning){pongRunning=true;pongLastTick=SystemClock.elapsedRealtime();}invalidate();}
+    private void updatePong(RectF b){if(!pongRunning||pongOver)return;long now=SystemClock.elapsedRealtime();if(pongLastTick==0)pongLastTick=now;float dt=Math.min(.035f,(now-pongLastTick)/1000f);pongLastTick=now;if(aiMode[PONG]){float pw=b.width()*.30f;pongTopX=clamp(pongTopX+(pongX-pongTopX)*Math.min(1f,dt*3.4f),b.left+pw/2,b.right-pw/2);}pongX+=pongVx*dt;pongY+=pongVy*dt;float r=minSide()*.018f;if(pongX-r<b.left){pongX=b.left+r;pongVx=Math.abs(pongVx);}if(pongX+r>b.right){pongX=b.right-r;pongVx=-Math.abs(pongVx);}float pw=b.width()*.30f,ph=minSide()*.025f;if(pongVy>0&&pongY+r>=b.bottom-ph*2&&pongY-r<=b.bottom-ph&&Math.abs(pongX-pongBottomX)<=pw*.58f){pongY=b.bottom-ph*2-r;pongVy=-Math.abs(pongVy)*1.025f;pongVx+=(pongX-pongBottomX)*1.2f;}if(pongVy<0&&pongY-r<=b.top+ph*2&&pongY+r>=b.top+ph&&Math.abs(pongX-pongTopX)<=pw*.58f){pongY=b.top+ph*2+r;pongVy=Math.abs(pongVy)*1.025f;pongVx+=(pongX-pongTopX)*1.2f;}if(pongY>b.bottom+r){pongTopScore++;resetPongBall(-1);}else if(pongY<b.top-r){pongBottomScore++;resetPongBall(1);}if(pongBottomScore>=5||pongTopScore>=5){pongOver=true;pongRunning=false;if(aiMode[PONG]){if(pongBottomScore>pongTopScore)showResult(1,"你赢了！",pongBottomScore+" : "+pongTopScore);else showResult(-1,"手表获胜",pongBottomScore+" : "+pongTopScore);}else showResult(1,(pongBottomScore>pongTopScore?"下方玩家":"上方玩家")+"获胜！",pongBottomScore+" : "+pongTopScore);}}
+    private void resetPongBall(int direction){RectF b=pongBoard();pongX=b.centerX();pongY=b.centerY();float speed=minSide()*.50f;pongVx=(random.nextBoolean()?1:-1)*speed*.48f;pongVy=direction*speed;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);}
+
+    // ---------- Brick Breaker ----------
+
+    private RectF brickBoard(){float s=minSide(),size=s*(roundScreen?.52f:.60f);return new RectF((getWidth()-size)/2f,s*.205f,(getWidth()+size)/2f,s*.205f+size);}
+    private void drawBrickBreaker(Canvas c){RectF b=brickBoard();if(brickBallX==0&&b.width()>0)initBrickGeometry();updateBrickBreaker(b);drawGameHeader(c,"砖块破坏",brickWon?"清空全部砖块":brickOver?"球掉下去了":"剩余 "+brickLeft+" 块 · "+brickScore+" 分",false);p.setColor(Color.rgb(16,23,32));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);int cols=6,rows=4;float gap=minSide()*.006f,bw=(b.width()-gap*(cols+1))/cols,bh=minSide()*.055f;int[] cs={Color.rgb(255,105,113),Color.rgb(255,174,74),Color.rgb(89,191,255),Color.rgb(82,211,145)};for(int i=0;i<24;i++)if(bricks[i]){int col=i%6,row=i/6;float l=b.left+gap+col*(bw+gap),t=b.top+gap+row*(bh+gap);p.setColor(cs[row]);c.drawRoundRect(new RectF(l,t,l+bw,t+bh),bh*.22f,bh*.22f,p);}float pw=b.width()*.32f,ph=minSide()*.025f;p.setColor(Color.WHITE);c.drawRoundRect(new RectF(brickPaddleX-pw/2,b.bottom-ph*2,brickPaddleX+pw/2,b.bottom-ph),ph/2,ph/2,p);p.setColor(Color.rgb(255,224,98));c.drawCircle(brickBallX,brickBallY,minSide()*.018f,p);if(!brickRunning&&!brickOver)text(c,"拖动挡板开始",b.centerX(),b.centerY()+minSide()*.09f,minSide()*.029f,Color.rgb(185,196,210),true);if(brickRunning)postInvalidateOnAnimation();drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void handleBrickTouch(float x){if(brickOver)return;RectF b=brickBoard();float pw=b.width()*.32f;brickPaddleX=clamp(x,b.left+pw/2,b.right-pw/2);if(!brickRunning){brickRunning=true;brickLastTick=SystemClock.elapsedRealtime();}invalidate();}
+    private void updateBrickBreaker(RectF b){if(!brickRunning||brickOver)return;long now=SystemClock.elapsedRealtime();if(brickLastTick==0)brickLastTick=now;float dt=Math.min(.032f,(now-brickLastTick)/1000f);brickLastTick=now;brickBallX+=brickVx*dt;brickBallY+=brickVy*dt;float r=minSide()*.018f;if(brickBallX-r<b.left){brickBallX=b.left+r;brickVx=Math.abs(brickVx);}if(brickBallX+r>b.right){brickBallX=b.right-r;brickVx=-Math.abs(brickVx);}if(brickBallY-r<b.top){brickBallY=b.top+r;brickVy=Math.abs(brickVy);}float pw=b.width()*.32f,ph=minSide()*.025f;if(brickVy>0&&brickBallY+r>=b.bottom-ph*2&&brickBallY-r<=b.bottom-ph&&Math.abs(brickBallX-brickPaddleX)<=pw*.56f){brickBallY=b.bottom-ph*2-r;brickVy=-Math.abs(brickVy);brickVx+=(brickBallX-brickPaddleX)*1.4f;}int cols=6;float gap=minSide()*.006f,bw=(b.width()-gap*(cols+1))/cols,bh=minSide()*.055f;for(int i=0;i<24;i++)if(bricks[i]){int col=i%6,row=i/6;RectF rr=new RectF(b.left+gap+col*(bw+gap),b.top+gap+row*(bh+gap),b.left+gap+col*(bw+gap)+bw,b.top+gap+row*(bh+gap)+bh);if(brickBallX+r>=rr.left&&brickBallX-r<=rr.right&&brickBallY+r>=rr.top&&brickBallY-r<=rr.bottom){bricks[i]=false;brickLeft--;brickScore+=10;brickVy=-brickVy;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(brickLeft==0){brickWon=true;brickOver=true;brickRunning=false;showResult(1,"砖块清空！",brickScore+" 分");}break;}}if(!brickOver&&brickBallY-r>b.bottom){brickOver=true;brickRunning=false;showResult(-1,"球掉下去了","击碎 "+(24-brickLeft)+" 块砖");}}
+
+    // ---------- Dice Duel ----------
+
+    private void drawDiceDuel(Canvas c){float s=minSide(),w=getWidth();String sub=diceOver?"对局结束":(aiMode[DICE_DUEL]?"单人 · 先到 20 分":"双人 · 玩家 "+diceTurn+" 掷骰");drawGameHeader(c,"骰子对决",sub,false);text(c,"P1  "+diceP1Score+"  :  "+diceP2Score+"  P2",w/2,s*.25f,s*.042f,Color.WHITE,true);float box=s*.19f;drawDie(c,w*.35f,s*.41f,box,diceP1);drawDie(c,w*.65f,s*.41f,box,diceP2);RectF roll=new RectF(w/2-s*.20f,s*.55f,w/2+s*.20f,s*.68f);p.setColor(Color.rgb(68,114,245));c.drawRoundRect(roll,roll.height()/2,roll.height()/2,p);text(c,diceOver?"本局结束":"掷骰子",roll.centerX(),roll.centerY()+roll.height()*.11f,roll.height()*.30f,Color.WHITE,true);drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void drawDie(Canvas c,float cx,float cy,float side,int value){RectF r=new RectF(cx-side/2,cy-side/2,cx+side/2,cy+side/2);p.setColor(Color.rgb(239,242,247));c.drawRoundRect(r,side*.18f,side*.18f,p);if(value<=0)return;float o=side*.23f,rad=side*.055f;p.setColor(Color.rgb(39,45,56));boolean center=value%2==1;if(center)c.drawCircle(cx,cy,rad,p);if(value>=2){c.drawCircle(cx-o,cy-o,rad,p);c.drawCircle(cx+o,cy+o,rad,p);}if(value>=4){c.drawCircle(cx+o,cy-o,rad,p);c.drawCircle(cx-o,cy+o,rad,p);}if(value==6){c.drawCircle(cx-o,cy,rad,p);c.drawCircle(cx+o,cy,rad,p);}}
+    private void handleDiceTap(float x,float y){if(diceOver)return;float s=minSide(),w=getWidth();RectF roll=new RectF(w/2-s*.20f,s*.55f,w/2+s*.20f,s*.68f);if(!roll.contains(x,y))return;if(aiMode[DICE_DUEL]){diceP1=1+random.nextInt(6);diceP1Score+=diceP1;if(diceP1Score<20){diceP2=1+random.nextInt(6);diceP2Score+=diceP2;}finishDiceIfNeeded();}else{int v=1+random.nextInt(6);if(diceTurn==1){diceP1=v;diceP1Score+=v;}else{diceP2=v;diceP2Score+=v;}if(!finishDiceIfNeeded())diceTurn=3-diceTurn;}performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
+    private boolean finishDiceIfNeeded(){if(diceP1Score<20&&diceP2Score<20)return false;diceOver=true;if(diceP1Score==diceP2Score)showResult(2,"平局",diceP1Score+" : "+diceP2Score);else if(aiMode[DICE_DUEL]){if(diceP1Score>diceP2Score)showResult(1,"你先到 20 分！",diceP1Score+" : "+diceP2Score);else showResult(-1,"手表先到 20 分",diceP1Score+" : "+diceP2Score);}else showResult(1,(diceP1Score>diceP2Score?"玩家 1":"玩家 2")+"获胜！",diceP1Score+" : "+diceP2Score);return true;}
+
+    // ---------- 4x4 Sudoku ----------
+
+    private void drawSudoku(Canvas c){float s=minSide(),w=getWidth(),size=s*(roundScreen?.48f:.55f),left=(w-size)/2f,top=s*.195f,cell=size/4f;drawGameHeader(c,"4×4 数独",sudokuWon?("完成 · 错误 "+sudokuMistakes):(sudokuSelected>=0?"选择下方数字填入":"先点一个空格"),false);p.setColor(Color.rgb(25,32,42));c.drawRoundRect(new RectF(left,top,left+size,top+size),s*.02f,s*.02f,p);for(int i=0;i<16;i++){int col=i%4,row=i/4;RectF r=new RectF(left+col*cell,top+row*cell,left+(col+1)*cell,top+(row+1)*cell);if(i==sudokuSelected){p.setColor(Color.rgb(48,76,112));c.drawRect(r,p);}if(sudoku[i]!=0)text(c,String.valueOf(sudoku[i]),r.centerX(),r.centerY()+cell*.16f,cell*.43f,sudokuFixed[i]?Color.rgb(205,214,225):Color.rgb(92,177,255),true);}p.setStyle(Paint.Style.STROKE);for(int i=0;i<=4;i++){p.setStrokeWidth(i%2==0?s*.009f:s*.003f);p.setColor(i%2==0?Color.rgb(116,132,153):Color.rgb(69,82,100));c.drawLine(left+i*cell,top,left+i*cell,top+size,p);c.drawLine(left,top+i*cell,left+size,top+i*cell,p);}p.setStyle(Paint.Style.FILL);float bw=s*.11f,bh=s*.105f,gap=s*.012f,total=bw*4+gap*3,bx=(w-total)/2f,by=s*.60f;for(int i=0;i<4;i++){RectF r=new RectF(bx+i*(bw+gap),by,bx+i*(bw+gap)+bw,by+bh);p.setColor(Color.rgb(42,51,65));c.drawRoundRect(r,bh*.32f,bh*.32f,p);text(c,String.valueOf(i+1),r.centerX(),r.centerY()+bh*.12f,bh*.36f,Color.WHITE,true);}drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void handleSudokuTap(float x,float y){if(sudokuWon)return;float s=minSide(),w=getWidth(),size=s*(roundScreen?.48f:.55f),left=(w-size)/2f,top=s*.195f,cell=size/4f;if(x>=left&&x<left+size&&y>=top&&y<top+size){int col=Math.min(3,(int)((x-left)/cell)),row=Math.min(3,(int)((y-top)/cell)),idx=row*4+col;if(!sudokuFixed[idx])sudokuSelected=idx;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();return;}float bw=s*.11f,bh=s*.105f,gap=s*.012f,total=bw*4+gap*3,bx=(w-total)/2f,by=s*.60f;if(sudokuSelected<0||y<by||y>by+bh)return;for(int i=0;i<4;i++){RectF r=new RectF(bx+i*(bw+gap),by,bx+i*(bw+gap)+bw,by+bh);if(r.contains(x,y)){if(sudokuSolution[sudokuSelected]==i+1){sudoku[sudokuSelected]=i+1;sudokuSelected=-1;performHapticFeedback(HapticFeedbackConstants.CONFIRM);boolean done=true;for(int v:sudoku)if(v==0){done=false;break;}if(done){sudokuWon=true;showResult(1,"数独完成！","错误次数 "+sudokuMistakes);}}else{sudokuMistakes++;performHapticFeedback(HapticFeedbackConstants.REJECT);showToastHint("这个数字不对");}invalidate();return;}}}
+
+    // ---------- Records ----------
+
+    private void drawRecords(Canvas c){float s=minSide(),w=getWidth(),h=getHeight();drawGameHeader(c,"战绩记录","游玩次数 · 完成/胜利 · 最佳记录",false);float top=s*.155f,bottom=bottomBarTop()-s*.025f,rowH=s*.128f,gap=s*.012f,sectionH=s*.058f,cursor=top;String prev="";for(int i=0;i<24;i++){if(!MENU_CATEGORIES[i].equals(prev)){cursor+=sectionH;prev=MENU_CATEGORIES[i];}cursor+=rowH+gap;}float content=cursor-top-gap;menuMaxScroll=Math.max(0,content-(bottom-top));menuScroll=clamp(menuScroll,-s*.10f,menuMaxScroll+s*.10f);c.save();c.clipRect(0,top,w,bottom);cursor=top-menuScroll;prev="";for(int i=0;i<24;i++){if(!MENU_CATEGORIES[i].equals(prev)){text(c,MENU_CATEGORIES[i],w/2,cursor+sectionH*.58f,sectionH*.31f,Color.rgb(120,138,160),true);cursor+=sectionH;prev=MENU_CATEGORIES[i];}RectF r=menuCardRect(cursor,rowH);p.setColor(Color.rgb(25,31,40));c.drawRoundRect(r,rowH*.25f,rowH*.25f,p);int gm=MENU_MODES[i],plays=prefs.getInt("stat_play_"+gm,0),wins=prefs.getInt("stat_win_"+gm,0),best=prefs.getInt("stat_best_"+gm,0);textFit(c,MENU_TITLES[i],r.left+rowH*.24f,r.top+rowH*.43f,rowH*.28f,Color.WHITE,true,Paint.Align.LEFT,r.width()*.46f);String bestText=best==0?"—":formatBest(gm,best);textFit(c,"游玩 "+plays+"  ·  完成/胜 "+wins+"  ·  最佳 "+bestText,r.left+rowH*.24f,r.top+rowH*.75f,rowH*.17f,Color.rgb(153,167,184),false,Paint.Align.LEFT,r.width()*.78f);cursor+=rowH+gap;}c.restore();drawBottomBar(c,new String[]{"返回"},false);}
+
+
     // ---------- About / donation ----------
 
     private void drawAbout(Canvas c){
         float s=minSide(),w=getWidth();
-        drawGameHeader(c,"关于","腕上小游戏 · v5.0",false);
+        drawGameHeader(c,"关于","腕上小游戏 · v6.0",false);
         float cardW=w*(roundScreen?.68f:.86f),left=(w-cardW)/2,top=s*.185f,bottom=bottomBarTop()-s*.030f;
         p.setColor(Color.rgb(25,31,40));c.drawRoundRect(new RectF(left,top,left+cardW,bottom),s*.045f,s*.045f,p);
         float y=top+s*.070f;
         text(c,"作者：黑白君",w/2,y,s*.040f,Color.WHITE,true);y+=s*.060f;
         drawWrappedCentered(c,"专为 Wear OS 小屏与圆屏优化的离线小游戏合集。",w/2,y,cardW*.84f,s*.026f,s*.039f,Color.rgb(190,199,212));
         y+=s*.090f;
-        textFit(c,"13 款游戏 · 动画反馈 · 圆屏安全区",w/2,y,s*.025f,Color.rgb(150,165,183),false,Paint.Align.CENTER,cardW*.84f);
+        textFit(c,"24 款游戏 · 4 分类 · 自动存档 · 战绩",w/2,y,s*.025f,Color.rgb(150,165,183),false,Paint.Align.CENTER,cardW*.84f);
 
         float btnH=s*.082f,gap=s*.018f;
         float feedbackTop=bottom-s*.045f-btnH;
@@ -1052,12 +1360,13 @@ public final class GameHubView extends View {
     private void showResult(int kind, String title, String sub) {
         resultOverlayKind = kind; resultOverlayTitle = title; resultOverlaySub = sub; resultOverlayAutoHide = false;
         resultOverlayStart = SystemClock.elapsedRealtime();
+        if(!suppressResultRecord && !roundResultRecorded && mode>0 && mode!=ABOUT && mode!=DONATE && mode!=RECORDS){recordResult(mode,kind,currentMetric());roundResultRecorded=true;}
         performHapticFeedback(kind == 1 ? HapticFeedbackConstants.CONFIRM : (kind == -1 ? HapticFeedbackConstants.REJECT : HapticFeedbackConstants.CLOCK_TICK));
         invalidate();
     }
 
     private void showTransientResult(int kind, String title, String sub) {
-        showResult(kind, title, sub); resultOverlayAutoHide = true;
+        suppressResultRecord=true;showResult(kind, title, sub);suppressResultRecord=false;resultOverlayAutoHide = true;
     }
 
     private void clearResultOverlay() {
@@ -1132,10 +1441,10 @@ public final class GameHubView extends View {
 
     private RectF[] bottomBarRect(int count){
         float s=minSide();
-        float bottom=getHeight()-(roundScreen?s*.13f:s*.025f);
-        float h=s*.14f;
-        float gap=s*.016f;
-        float usable=Math.min(getWidth()*(roundScreen?.66f:.88f),dp(310));
+        float bottom=getHeight()-(roundScreen?s*.095f:s*.018f);
+        float h=s*.155f;
+        float gap=s*.020f;
+        float usable=Math.min(getWidth()*(roundScreen?.76f:.92f),dp(330));
         float bw=(usable-gap*(count-1))/count,left=(getWidth()-usable)/2f;
         RectF[] out=new RectF[count];for(int i=0;i<count;i++)out[i]=new RectF(left+i*(bw+gap),bottom-h,left+i*(bw+gap)+bw,bottom);return out;
     }
@@ -1180,23 +1489,37 @@ public final class GameHubView extends View {
     // ---------- Touch ----------
 
     @Override public boolean onTouchEvent(MotionEvent e) {
+        if (pendingModeChoice >= 0) return handleModePickerTouch(e);
         int action=e.getActionMasked();
+        boolean listScreen = mode==MENU || mode==RECORDS;
         if(action==MotionEvent.ACTION_DOWN){
-            downX=lastX=e.getX();downY=lastY=e.getY();dragging=false;pinching=false;menuDragging=false;edgeBackOffset=0;
-            edgeBackDragging=false;
-            gestureStartedOnControl=isControlArea(downX,downY);menuScrollAtDown=menuScroll;
-            if(mode==MENU)pressedMenuIndex=findMenuIndex(downX,downY);
+            downX=lastX=e.getX();downY=lastY=e.getY();dragging=false;pinching=false;menuDragging=false;edgeBackOffset=0;edgeBackDragging=false;
+            pressedBottomIndex=bottomButtonAt(downX,downY);pressedBottomDownX=downX;pressedBottomDownY=downY;
+            gestureStartedOnControl=pressedBottomIndex>=0 || isConfirmArea(downY);menuScrollAtDown=menuScroll;
+            if(listScreen && pressedBottomIndex<0){menuScroller.forceFinished(true);menuVelocityTracker=VelocityTracker.obtain();menuVelocityTracker.addMovement(e);if(mode==MENU)pressedMenuIndex=findMenuIndex(downX,downY);}
             if(mode==BOUNCE&&!gestureStartedOnControl)handleBounceTouch(downX);
+            if(mode==PONG&&!gestureStartedOnControl)handlePongTouch(downX,downY);
+            if(mode==BRICK_BREAKER&&!gestureStartedOnControl)handleBrickTouch(downX);
             invalidate();return true;
         }
         if(action==MotionEvent.ACTION_POINTER_DOWN&&e.getPointerCount()>=2&&(mode==XIANGQI||mode==GOMOKU)){
             pinching=true;dragging=false;pinchStart=distance(e);zoomStart=zoom;return true;
         }
         if(action==MotionEvent.ACTION_MOVE){
-            if(mode==MENU){
-                float dy=e.getY()-downY;if(Math.abs(dy)>minSide()*.018f){menuDragging=true;pressedMenuIndex=-1;menuScroll=clamp(menuScrollAtDown-dy,0,menuMaxScroll);invalidate();}return true;
+            if(listScreen && pressedBottomIndex<0){
+                if(menuVelocityTracker!=null)menuVelocityTracker.addMovement(e);
+                float dy=e.getY()-downY;
+                if(Math.abs(dy)>minSide()*.015f){
+                    menuDragging=true;pressedMenuIndex=-1;float target=menuScrollAtDown-dy,over=minSide()*.13f;
+                    if(target<0)target*=.34f;else if(target>menuMaxScroll)target=menuMaxScroll+(target-menuMaxScroll)*.34f;
+                    menuScroll=clamp(target,-over,menuMaxScroll+over);invalidate();
+                }
+                return true;
             }
+            if(pressedBottomIndex>=0){if(Math.hypot(e.getX()-pressedBottomDownX,e.getY()-pressedBottomDownY)>minSide()*.04f)pressedBottomIndex=-1;return true;}
             if(mode==BOUNCE&&!gestureStartedOnControl){handleBounceTouch(e.getX());lastX=e.getX();lastY=e.getY();return true;}
+            if(mode==PONG&&!gestureStartedOnControl){handlePongTouch(e.getX(),e.getY());lastX=e.getX();lastY=e.getY();return true;}
+            if(mode==BRICK_BREAKER&&!gestureStartedOnControl){handleBrickTouch(e.getX());lastX=e.getX();lastY=e.getY();return true;}
             if(pinching&&e.getPointerCount()>=2){float dist=distance(e);if(pinchStart>1){zoom=clamp(zoomStart*dist/pinchStart,.72f,2.15f);invalidate();}}
             else if(!gestureStartedOnControl&&(mode==XIANGQI||mode==GOMOKU)){
                 float dx=e.getX()-lastX,dy=e.getY()-lastY;if(Math.hypot(e.getX()-downX,e.getY()-downY)>minSide()*.018f)dragging=true;
@@ -1207,73 +1530,56 @@ public final class GameHubView extends View {
         if(action==MotionEvent.ACTION_POINTER_UP){pinching=false;return true;}
         if(action==MotionEvent.ACTION_UP){
             float ux=e.getX(),uy=e.getY();
-            if(mode==MENU){int idx=(!menuDragging&&Math.hypot(ux-downX,uy-downY)<minSide()*.035f)?findMenuIndex(ux,uy):-1;pressedMenuIndex=-1;if(idx>=0)startMode(MENU_MODES[idx]);invalidate();return true;}
-            if(!gestureStartedOnControl&&(mode==GAME_2048||mode==SNAKE)){
-                float dx=ux-downX,dy=uy-downY;
-                if(Math.hypot(dx,dy)>=minSide()*.075f){
-                    int dir;if(Math.abs(dx)>Math.abs(dy))dir=dx>0?1:3;else dir=dy>0?2:0;
-                    if(mode==GAME_2048)move2048(dir);else setSnakeDirection(dir);
-                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();pinching=false;dragging=false;return true;
-                }
+            if(listScreen && pressedBottomIndex<0){
+                if(menuVelocityTracker!=null){menuVelocityTracker.addMovement(e);menuVelocityTracker.computeCurrentVelocity(1000);float vy=menuVelocityTracker.getYVelocity();menuVelocityTracker.recycle();menuVelocityTracker=null;if(menuDragging&&Math.abs(vy)>220){menuScroller.fling(0,(int)menuScroll,0,(int)-vy,0,0,(int)(-minSide()*.10f),(int)(menuMaxScroll+minSide()*.10f));postInvalidateOnAnimation();}else springMenuIfNeeded();}
+                if(mode==MENU&&!menuDragging&&Math.hypot(ux-downX,uy-downY)<minSide()*.035f){int idx=findMenuIndex(ux,uy);pressedMenuIndex=-1;if(idx==RESUME_ITEM)resumeSavedGame();else if(idx>=0)startMode(MENU_MODES[idx]);}
+                pressedMenuIndex=-1;invalidate();return true;
             }
-            if(!dragging&&!pinching)handleTap(ux,uy);
-            pinching=false;dragging=false;return true;
+            if(pressedBottomIndex>=0){int up=bottomButtonAt(ux,uy);int down=pressedBottomIndex;pressedBottomIndex=-1;if(up==down&&Math.hypot(ux-downX,uy-downY)<minSide()*.045f)performBottomAction(down);invalidate();return true;}
+            if(!gestureStartedOnControl&&(mode==GAME_2048||mode==SNAKE||mode==MAZE)){
+                float dx=ux-downX,dy=uy-downY;if(Math.hypot(dx,dy)>=minSide()*.065f){int dir=Math.abs(dx)>Math.abs(dy)?(dx>0?1:3):(dy>0?2:0);if(mode==GAME_2048)move2048(dir);else if(mode==SNAKE)setSnakeDirection(dir);else handleMazeSwipe(dir);performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();pinching=false;dragging=false;return true;}
+            }
+            if(!dragging&&!pinching)handleTap(ux,uy);pinching=false;dragging=false;return true;
         }
-        if(action==MotionEvent.ACTION_CANCEL){pinching=false;dragging=false;pressedMenuIndex=-1;edgeBackDragging=false;edgeBackOffset=0;invalidate();return true;}
+        if(action==MotionEvent.ACTION_CANCEL){pinching=false;dragging=false;pressedMenuIndex=-1;pressedBottomIndex=-1;edgeBackDragging=false;edgeBackOffset=0;if(menuVelocityTracker!=null){menuVelocityTracker.recycle();menuVelocityTracker=null;}springMenuIfNeeded();invalidate();return true;}
         return true;
     }
 
-    private boolean isControlArea(float x,float y){
-        if(mode==MENU||mode==ABOUT||mode==DONATE)return true;
-        if(y>=bottomBarTop()-minSide()*.02f)return true;
-        return (mode==XIANGQI&&pendingX>=0||mode==GOMOKU&&gomokuPendingX>=0)&&y>=bottomBarTop()-minSide()*.15f;
+    @Override public boolean onGenericMotionEvent(MotionEvent e){
+        if((mode==MENU||mode==RECORDS)&&e.getAction()==MotionEvent.ACTION_SCROLL){float v=e.getAxisValue(MotionEvent.AXIS_SCROLL);if(v!=0){menuScroller.forceFinished(true);menuScroll-=v*minSide()*.16f;menuScroll=clamp(menuScroll,-minSide()*.10f,menuMaxScroll+minSide()*.10f);springMenuIfNeeded();invalidate();return true;}}
+        return super.onGenericMotionEvent(e);
     }
 
+    @Override public void computeScroll(){
+        if(menuScroller.computeScrollOffset()){menuScroll=menuScroller.getCurrY();postInvalidateOnAnimation();if(menuScroller.isFinished())springMenuIfNeeded();}
+    }
+
+    private void springMenuIfNeeded(){int target=(int)clamp(menuScroll,0,menuMaxScroll);if(Math.abs(menuScroll-target)>.5f){menuScroller.startScroll(0,(int)menuScroll,0,target-(int)menuScroll,260);postInvalidateOnAnimation();}}
+
+    private boolean isConfirmArea(float y){return (mode==XIANGQI&&pendingX>=0||mode==GOMOKU&&gomokuPendingX>=0)&&y>=bottomBarTop()-minSide()*.15f;}
+
     private int findMenuIndex(float x,float y){
-        float s=minSide(),titleY=roundScreen?s*.105f:dp(34),viewportTop=titleY+s*.105f;
-        float cardH=s*.17f,gap=s*.026f;
-        for(int i=0;i<MENU_TITLES.length;i++){float yy=viewportTop+i*(cardH+gap)-menuScroll;RectF r=menuCardRect(yy,cardH);r.inset(-s*.012f,-s*.008f);if(r.contains(x,y))return i;}return -1;
+        float s=minSide(),viewportTop=menuViewportTop(),cardH=s*.185f,gap=s*.022f,sectionH=s*.078f,cursor=viewportTop-menuScroll;
+        if(savedResumeMode>=0){float rh=cardH*.78f;RectF rr=menuCardRect(cursor,rh);if(rr.contains(x,y))return RESUME_ITEM;cursor+=rh+gap;}
+        String prev="";for(int i=0;i<MENU_TITLES.length;i++){if(!MENU_CATEGORIES[i].equals(prev)){cursor+=sectionH;prev=MENU_CATEGORIES[i];}RectF r=menuCardRect(cursor,cardH);RectF hit=new RectF(r);hit.inset(-s*.010f,-s*.006f);if(hit.contains(x,y))return i;cursor+=cardH+gap;}return -1;
     }
 
     private void handleTap(float x,float y){
-        if(handleBottomBarTap(x,y))return;
-        if(mode==XIANGQI){
-            if(pendingX>=0&&y>=bottomBarTop()-minSide()*.15f){if(x<getWidth()/2)confirmXiangqi();else{pendingX=pendingY=-1;message="已取消";invalidate();}return;}selectXiangqiAt(x,y);
-        }else if(mode==GOMOKU){
-            if(gomokuPendingX>=0&&y>=bottomBarTop()-minSide()*.15f){if(x<getWidth()/2)confirmGomoku();else{gomokuPendingX=gomokuPendingY=-1;invalidate();}return;}selectGomokuAt(x,y);
-        }else if(mode==TAP_RUSH){
-            if(!tapOver&&Math.hypot(x-targetX,y-targetY)<=minSide()*.09f){tapScore++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);placeTapTarget();invalidate();}
-        }else if(mode==SIMON)handleSimonTap(x,y);
-        else if(mode==TICTACTOE)handleTicTacToeTap(x,y);
-        else if(mode==COLOR_HUNT)handleColorHuntTap(x,y);
-        else if(mode==BOUNCE)handleBounceTouch(x);
-        else if(mode==SLIDE_PUZZLE)handleSlidePuzzleTap(x,y);
-        else if(mode==LIGHTS_OUT)handleLightsOutTap(x,y);
-        else if(mode==MINI_MINES)handleMiniMinesTap(x,y);
-        else if(mode==ROCK_PAPER_SCISSORS)handleRpsTap(x,y);
-        else if(mode==ABOUT){
-            float s=minSide(),w=getWidth(),cardW=w*(roundScreen?.68f:.86f),top=s*.185f,bottom=bottomBarTop()-s*.030f;
-            float btnH=s*.082f,gap=s*.018f,feedbackTop=bottom-s*.045f-btnH,donateTop=feedbackTop-gap-btnH;
-            RectF donate=new RectF(w/2-cardW*.35f,donateTop,w/2+cardW*.35f,donateTop+btnH);
-            RectF feedback=new RectF(w/2-cardW*.35f,feedbackTop,w/2+cardW*.35f,feedbackTop+btnH);
-            if(donate.contains(x,y)){navigateTo(DONATE,false);performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
-            else if(feedback.contains(x,y))openFeedbackOnPhone();
-        }
+        if(mode==XIANGQI){if(pendingX>=0&&y>=bottomBarTop()-minSide()*.15f){if(x<getWidth()/2)confirmXiangqi();else{pendingX=pendingY=-1;message="已取消";invalidate();}return;}selectXiangqiAt(x,y);}
+        else if(mode==GOMOKU){if(gomokuPendingX>=0&&y>=bottomBarTop()-minSide()*.15f){if(x<getWidth()/2)confirmGomoku();else{gomokuPendingX=gomokuPendingY=-1;invalidate();}return;}selectGomokuAt(x,y);}
+        else if(mode==TAP_RUSH){if(!tapOver&&Math.hypot(x-targetX,y-targetY)<=minSide()*.09f){tapScore++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);placeTapTarget();invalidate();}}
+        else if(mode==SIMON)handleSimonTap(x,y);else if(mode==TICTACTOE)handleTicTacToeTap(x,y);else if(mode==COLOR_HUNT)handleColorHuntTap(x,y);else if(mode==BOUNCE)handleBounceTouch(x);else if(mode==SLIDE_PUZZLE)handleSlidePuzzleTap(x,y);else if(mode==LIGHTS_OUT)handleLightsOutTap(x,y);else if(mode==MINI_MINES)handleMiniMinesTap(x,y);else if(mode==ROCK_PAPER_SCISSORS)handleRpsTap(x,y);else if(mode==CONNECT4)handleConnect4Tap(x,y);else if(mode==REVERSI)handleReversiTap(x,y);else if(mode==MEMORY_MATCH)handleMemoryTap(x,y);else if(mode==NUMBER_TAP)handleNumberTap(x,y);else if(mode==QUICK_MATH)handleQuickMath(x,y);else if(mode==NIM)handleNimTap(x,y);else if(mode==PONG)handlePongTouch(x,y);else if(mode==BRICK_BREAKER)handleBrickTouch(x);else if(mode==DICE_DUEL)handleDiceTap(x,y);else if(mode==SUDOKU)handleSudokuTap(x,y);
+        else if(mode==ABOUT){float s=minSide(),w=getWidth(),cardW=w*(roundScreen?.68f:.86f),bottom=bottomBarTop()-s*.030f;float btnH=s*.082f,gap=s*.018f,feedbackTop=bottom-s*.045f-btnH,donateTop=feedbackTop-gap-btnH;RectF donate=new RectF(w/2-cardW*.35f,donateTop,w/2+cardW*.35f,donateTop+btnH),feedback=new RectF(w/2-cardW*.35f,feedbackTop,w/2+cardW*.35f,feedbackTop+btnH);if(donate.contains(x,y)){navigateTo(DONATE,false);performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);}else if(feedback.contains(x,y))openFeedbackOnPhone();}
     }
 
-    private boolean handleBottomBarTap(float x,float y){
-        if(y<bottomBarTop()-minSide()*.02f)return false;
-        if(mode==XIANGQI){int idx=barIndex(x,y,xiangqiOver?2:3);if(idx<0)return false;if(idx==0)navigateTo(MENU,true);else if(idx==1)resetXiangqi();else if(idx==2&&!xiangqiOver&&xiangqi.undo()){selectedX=selectedY=pendingX=pendingY=-1;message="已撤销一步";}invalidate();return true;}
-        if(mode==GOMOKU||mode==GAME_2048||mode==TAP_RUSH||mode==SNAKE||mode==SIMON||mode==TICTACTOE||mode==COLOR_HUNT||mode==BOUNCE||mode==SLIDE_PUZZLE||mode==LIGHTS_OUT||mode==MINI_MINES||mode==ROCK_PAPER_SCISSORS){
-            int idx=barIndex(x,y,2);if(idx<0)return false;if(idx==0)navigateTo(MENU,true);
-            else if(mode==GOMOKU)resetGomoku();else if(mode==GAME_2048)reset2048();else if(mode==TAP_RUSH)resetTapRush();else if(mode==SNAKE)resetSnake();else if(mode==SIMON)resetSimon();else if(mode==TICTACTOE)resetTicTacToe();else if(mode==COLOR_HUNT)resetColorHunt();else if(mode==BOUNCE)resetBounce();else if(mode==SLIDE_PUZZLE)resetSlidePuzzle();else if(mode==LIGHTS_OUT)resetLightsOut();else if(mode==MINI_MINES)resetMiniMines();else resetRps();
-            invalidate();return true;
-        }
-        if(mode==ABOUT||mode==DONATE){int idx=barIndex(x,y,1);if(idx==0){navigateTo(mode==DONATE?ABOUT:MENU,true);invalidate();return true;}}
-        return false;
-    }
+    private int bottomButtonCount(){if(mode==MENU)return 0;if(mode==ABOUT||mode==DONATE||mode==RECORDS)return 1;if(mode==XIANGQI)return xiangqiOver?2:3;return 2;}
+    private int bottomButtonAt(float x,float y){int count=bottomButtonCount();if(count<=0)return -1;RectF[] rs=bottomBarRect(count);for(int i=0;i<rs.length;i++){RectF hit=new RectF(rs[i]);hit.inset(-minSide()*.008f,-minSide()*.008f);if(hit.contains(x,y))return i;}return -1;}
 
-    private int barIndex(float x,float y,int count){RectF[] rs=bottomBarRect(count);for(int i=0;i<rs.length;i++){RectF hit=new RectF(rs[i]);hit.inset(-minSide()*.012f,-minSide()*.015f);if(hit.contains(x,y))return i;}return -1;}
+    private void performBottomAction(int idx){
+        if(mode==ABOUT||mode==DONATE||mode==RECORDS){if(idx==0){menuScroll=0;navigateTo(mode==DONATE?ABOUT:MENU,true);}return;}
+        if(mode==XIANGQI){if(idx==0){persistCurrentState();navigateTo(MENU,true);}else if(idx==1){roundResultRecorded=false;resetXiangqi();}else if(idx==2&&!xiangqiOver&&xiangqi.undo()){selectedX=selectedY=pendingX=pendingY=-1;message="已撤销一步";}return;}
+        if(idx==0){persistCurrentState();navigateTo(MENU,true);return;}if(idx!=1)return;roundResultRecorded=false;resetMode(mode);
+    }
 
     // ---------- Game actions ----------
 
@@ -1296,18 +1602,43 @@ public final class GameHubView extends View {
     }
 
     private void selectGomokuAt(float sx,float sy){
-        if(gomokuOver)return;float cell=baseGomokuCell()*zoom,left=getWidth()/2f+panX-7*cell,top=headerBottom()+minSide()*.03f+panY;
+        if(gomokuOver || (aiMode[GOMOKU] && gomokuTurn==2))return;float cell=baseGomokuCell()*zoom,left=getWidth()/2f+panX-7*cell,top=headerBottom()+minSide()*.03f+panY;
         int x=Math.round((sx-left)/cell),y=Math.round((sy-top)/cell);if(x<0||x>=15||y<0||y>=15)return;
         if(gomoku[y][x]!=0)message="这里已有棋子";else{gomokuPendingX=x;gomokuPendingY=y;message="确认后落子";}performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);invalidate();
     }
 
     private void confirmGomoku(){
         if(gomokuPendingX<0||gomokuOver)return;int x=gomokuPendingX,y=gomokuPendingY;gomoku[y][x]=gomokuTurn;gomokuLastX=x;gomokuLastY=y;gomokuStoneAnimStart=SystemClock.elapsedRealtime();
-        if(checkFive(x,y,gomokuTurn)){gomokuOver=true;message=(gomokuTurn==1?"黑方":"白方")+"获胜";showResult(1,message+"！","五子连珠，对局结束");}else{gomokuTurn=3-gomokuTurn;message=gomokuTurn==1?"黑方回合":"白方回合";}
+        if(checkFive(x,y,gomokuTurn)){
+            gomokuOver=true;message=(gomokuTurn==1?"黑方":"白方")+"获胜";
+            if(aiMode[GOMOKU] && gomokuTurn==2) showResult(-1,"手表获胜","五子连珠，对局结束");
+            else showResult(1,message+"！","五子连珠，对局结束");
+        } else {
+            gomokuTurn=3-gomokuTurn;message=gomokuTurn==1?"黑方回合":"白方回合";
+            if(aiMode[GOMOKU] && gomokuTurn==2) { message="手表思考中…"; gomokuAiDue=SystemClock.elapsedRealtime()+260; }
+        }
         gomokuPendingX=gomokuPendingY=-1;performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);invalidate();
     }
 
     private boolean checkFive(int x,int y,int who){int[][] dirs={{1,0},{0,1},{1,1},{1,-1}};for(int[] dir:dirs){int n=1;for(int s=1;s<5;s++){int xx=x+dir[0]*s,yy=y+dir[1]*s;if(xx<0||xx>=15||yy<0||yy>=15||gomoku[yy][xx]!=who)break;n++;}for(int s=1;s<5;s++){int xx=x-dir[0]*s,yy=y-dir[1]*s;if(xx<0||xx>=15||yy<0||yy>=15||gomoku[yy][xx]!=who)break;n++;}if(n>=5)return true;}return false;}
+
+    private void updateGomokuAi(){
+        if(!aiMode[GOMOKU]||gomokuOver||gomokuTurn!=2||gomokuAiDue<=0)return;
+        long now=SystemClock.elapsedRealtime();if(now<gomokuAiDue){postInvalidateDelayed(Math.max(16,gomokuAiDue-now));return;}
+        gomokuAiDue=0;int[] mv=chooseGomokuAiMove();if(mv==null)return;int x=mv[0],y=mv[1];gomoku[y][x]=2;gomokuLastX=x;gomokuLastY=y;gomokuStoneAnimStart=now;
+        if(checkFive(x,y,2)){gomokuOver=true;message="手表获胜";showResult(-1,"手表获胜","五子连珠，对局结束");}
+        else{gomokuTurn=1;message="黑方回合";}
+        invalidate();
+    }
+
+    private int[] chooseGomokuAiMove(){
+        for(int who:new int[]{2,1})for(int y=0;y<15;y++)for(int x=0;x<15;x++)if(gomoku[y][x]==0){gomoku[y][x]=who;boolean win=checkFive(x,y,who);gomoku[y][x]=0;if(win)return new int[]{x,y};}
+        List<int[]> near=new ArrayList<>();
+        for(int y=0;y<15;y++)for(int x=0;x<15;x++)if(gomoku[y][x]==0){boolean ok=false;for(int dy=-2;dy<=2&&!ok;dy++)for(int dx=-2;dx<=2;dx++){int xx=x+dx,yy=y+dy;if(xx>=0&&xx<15&&yy>=0&&yy<15&&gomoku[yy][xx]!=0){ok=true;break;}}if(ok)near.add(new int[]{x,y});}
+        if(near.isEmpty())return new int[]{7,7};
+        int best=-999;List<int[]> bests=new ArrayList<>();for(int[] m:near){int score=0;for(int dy=-2;dy<=2;dy++)for(int dx=-2;dx<=2;dx++){int xx=m[0]+dx,yy=m[1]+dy;if(xx<0||xx>=15||yy<0||yy>=15)continue;if(gomoku[yy][xx]==2)score+=3;if(gomoku[yy][xx]==1)score+=2;}score-=Math.abs(m[0]-7)+Math.abs(m[1]-7);if(score>best){best=score;bests.clear();bests.add(m);}else if(score==best)bests.add(m);}
+        return bests.get(random.nextInt(bests.size()));
+    }
 
     private void move2048(int dir){
         if(over2048)return;Game2048Engine.MoveFrame f=game2048.move(dir);if(!f.changed){over2048=!game2048.canMove();if(over2048)showResult(-1,"没有可移动位置","本局 "+game2048.getScore()+" 分");invalidate();return;}frame2048=f;anim2048Start=SystemClock.elapsedRealtime();over2048=f.gameOver;
@@ -1319,30 +1650,120 @@ public final class GameHubView extends View {
     // ---------- Resets / navigation ----------
 
     private void navigateTo(int target, boolean back){mode=target;pageBackTransition=back;pageTransitionStart=SystemClock.elapsedRealtime();clearResultOverlay();invalidate();}
+
+    private boolean supportsModeChoice(int m){return m==GOMOKU||m==TICTACTOE||m==CONNECT4||m==REVERSI||m==NIM||m==PONG||m==DICE_DUEL;}
+
     private void startMode(int m){
         if(m==FEEDBACK){openFeedbackOnPhone();return;}
-        panX=panY=0;zoom=1f;
-        if(m==XIANGQI)resetXiangqi();else if(m==GOMOKU)resetGomoku();else if(m==GAME_2048)reset2048();else if(m==TAP_RUSH)resetTapRush();else if(m==SNAKE)resetSnake();else if(m==SIMON)resetSimon();else if(m==TICTACTOE)resetTicTacToe();else if(m==COLOR_HUNT)resetColorHunt();else if(m==BOUNCE)resetBounce();else if(m==SLIDE_PUZZLE)resetSlidePuzzle();else if(m==LIGHTS_OUT)resetLightsOut();else if(m==MINI_MINES)resetMiniMines();else if(m==ROCK_PAPER_SCISSORS)resetRps();
-        navigateTo(m,false);performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        if(m==RECORDS){menuScroll=0;navigateTo(RECORDS,false);return;}
+        if(m==ABOUT){navigateTo(ABOUT,false);return;}
+        if(supportsModeChoice(m)){pendingModeChoice=m;invalidate();return;}
+        startActualMode(m);
     }
-    public boolean goBack(){if(mode==DONATE){navigateTo(ABOUT,true);return true;}if(mode!=MENU){navigateTo(MENU,true);return true;}return false;}
 
-    private void resetAll(){resetXiangqi();resetGomoku();reset2048();resetTapRush();resetSnake();resetSimon();resetTicTacToe();resetColorHunt();resetBounce();resetSlidePuzzle();resetLightsOut();resetMiniMines();resetRps();mode=MENU;menuScroll=0;pageTransitionStart=SystemClock.elapsedRealtime();}
+    private void startActualMode(int m){
+        pendingModeChoice=-1;panX=panY=0;zoom=1f;roundResultRecorded=false;resetMode(m);recordLaunch(m);navigateTo(m,false);performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+    }
+
+    private void resetMode(int m){
+        if(m==XIANGQI)resetXiangqi();else if(m==GOMOKU)resetGomoku();else if(m==GAME_2048)reset2048();else if(m==TAP_RUSH)resetTapRush();else if(m==SNAKE)resetSnake();else if(m==SIMON)resetSimon();else if(m==TICTACTOE)resetTicTacToe();else if(m==COLOR_HUNT)resetColorHunt();else if(m==BOUNCE)resetBounce();else if(m==SLIDE_PUZZLE)resetSlidePuzzle();else if(m==LIGHTS_OUT)resetLightsOut();else if(m==MINI_MINES)resetMiniMines();else if(m==ROCK_PAPER_SCISSORS)resetRps();else if(m==CONNECT4)resetConnect4();else if(m==REVERSI)resetReversi();else if(m==MEMORY_MATCH)resetMemoryMatch();else if(m==MAZE)resetMaze();else if(m==NUMBER_TAP)resetNumberTap();else if(m==QUICK_MATH)resetQuickMath();else if(m==NIM)resetNim();else if(m==PONG)resetPong();else if(m==BRICK_BREAKER)resetBrickBreaker();else if(m==DICE_DUEL)resetDiceDuel();else if(m==SUDOKU)resetSudoku();
+    }
+
+    public boolean goBack(){if(pendingModeChoice>=0){pendingModeChoice=-1;invalidate();return true;}if(mode==DONATE){navigateTo(ABOUT,true);return true;}if(mode!=MENU){persistCurrentState();menuScroll=0;navigateTo(MENU,true);return true;}return false;}
+
+    private void resetAll(){resetXiangqi();resetGomoku();reset2048();resetTapRush();resetSnake();resetSimon();resetTicTacToe();resetColorHunt();resetBounce();resetSlidePuzzle();resetLightsOut();resetMiniMines();resetRps();resetConnect4();resetReversi();resetMemoryMatch();resetMaze();resetNumberTap();resetQuickMath();resetNim();resetPong();resetBrickBreaker();resetDiceDuel();resetSudoku();mode=MENU;menuScroll=0;pageTransitionStart=SystemClock.elapsedRealtime();}
     private void resetXiangqi(){clearResultOverlay();xiangqi.reset();selectedX=selectedY=pendingX=pendingY=-1;xiangqiOver=false;xqAnimPiece=0;message="红方回合";panX=panY=0;zoom=1f;}
-    private void resetGomoku(){clearResultOverlay();for(int y=0;y<15;y++)for(int x=0;x<15;x++)gomoku[y][x]=0;gomokuTurn=1;gomokuPendingX=gomokuPendingY=-1;gomokuOver=false;gomokuLastX=gomokuLastY=-1;message="黑方回合";panX=panY=0;zoom=1f;}
+    private void resetGomoku(){clearResultOverlay();for(int y=0;y<15;y++)for(int x=0;x<15;x++)gomoku[y][x]=0;gomokuTurn=1;gomokuPendingX=gomokuPendingY=-1;gomokuOver=false;gomokuLastX=gomokuLastY=-1;gomokuAiDue=0;message="黑方回合";panX=panY=0;zoom=1f;}
     private void reset2048(){clearResultOverlay();game2048.reset();frame2048=null;over2048=false;reached2048Shown=false;}
     private void resetTapRush(){clearResultOverlay();tapScore=0;tapOver=false;tapResultShown=false;tapStart=SystemClock.elapsedRealtime();post(()->{placeTapTarget();invalidate();});}
     private void resetSnake(){clearResultOverlay();snake.clear();snake.addFirst(new Cell(5,6));snake.addLast(new Cell(4,6));snake.addLast(new Cell(3,6));snakeDir=1;snakeScore=0;snakeOver=false;snakeRunning=false;snakeWon=false;placeSnakeFood();}
     private void resetSimon(){clearResultOverlay();simonSeq.clear();simonSeq.add(random.nextInt(4));simonInputIndex=0;simonOver=false;simonWon=false;simonShowing=true;simonRoundStart=SystemClock.elapsedRealtime()+550;simonTapFlash=-1;}
-    private void resetTicTacToe(){clearResultOverlay();for(int i=0;i<9;i++)ttt[i]=0;tttOver=false;tttResult=0;tttLast=-1;tttAiDue=0;}
+    private void resetTicTacToe(){clearResultOverlay();Arrays.fill(ttt,0);tttOver=false;tttResult=0;tttLast=-1;tttAiDue=0;tttTurn=1;}
     private void resetColorHunt(){clearResultOverlay();colorGridN=2;colorScore=0;colorOver=false;colorWon=false;colorTarget=random.nextInt(4);colorDeadline=SystemClock.elapsedRealtime()+25000;colorFlash=-1;}
     private void resetBounce(){clearResultOverlay();bounceHits=0;bounceRunning=false;bounceOver=false;bounceWon=false;bounceLastTick=0;bounceBallX=bounceBallY=bounceVx=bounceVy=bouncePaddleX=0;}
     private void resetSlidePuzzle(){clearResultOverlay();for(int i=0;i<8;i++)slidePuzzle[i]=i+1;slidePuzzle[8]=0;slideMoves=0;slideWon=false;for(int i=0;i<80;i++){int z=findZero(slidePuzzle),zr=z/3,zc=z%3;int[] cand=new int[4];int n=0;if(zr>0)cand[n++]=z-3;if(zr<2)cand[n++]=z+3;if(zc>0)cand[n++]=z-1;if(zc<2)cand[n++]=z+1;int j=cand[random.nextInt(n)];slidePuzzle[z]=slidePuzzle[j];slidePuzzle[j]=0;}if(isSlideSolved())resetSlidePuzzle();}
-    private void resetLightsOut(){clearResultOverlay();lightsMoves=0;lightsWon=false;for(int i=0;i<16;i++)lights[i]=false;for(int i=0;i<18;i++)toggleLights(random.nextInt(16),false);if(allLightsOff())resetLightsOut();}
-    private void resetMiniMines(){clearResultOverlay();for(int i=0;i<25;i++){mines[i]=false;mineOpen[i]=false;}int placed=0;while(placed<5){int i=random.nextInt(25);if(!mines[i]){mines[i]=true;placed++;}}minesOver=false;minesWon=false;minesOpened=0;}
+    private void resetLightsOut(){clearResultOverlay();lightsMoves=0;lightsWon=false;Arrays.fill(lights,false);for(int i=0;i<18;i++)toggleLights(random.nextInt(16),false);if(allLightsOff())resetLightsOut();}
+    private void resetMiniMines(){clearResultOverlay();Arrays.fill(mines,false);Arrays.fill(mineOpen,false);int placed=0;while(placed<5){int i=random.nextInt(25);if(!mines[i]){mines[i]=true;placed++;}}minesOver=false;minesWon=false;minesOpened=0;}
     private void resetRps(){clearResultOverlay();rpsPlayer=rpsAi=0;rpsPlayerScore=rpsAiScore=0;rpsOver=false;}
+    private void resetConnect4(){clearResultOverlay();Arrays.fill(connect4,0);connect4Turn=1;connect4Over=false;connect4Last=-1;connect4AiDue=0;}
+    private void resetReversi(){clearResultOverlay();Arrays.fill(reversi,0);reversi[2*6+2]=2;reversi[3*6+3]=2;reversi[2*6+3]=1;reversi[3*6+2]=1;reversiTurn=1;reversiOver=false;reversiAiDue=0;}
+    private void resetMemoryMatch(){clearResultOverlay();for(int i=0;i<16;i++)memoryCards[i]=i/2;for(int i=15;i>0;i--){int j=random.nextInt(i+1),t=memoryCards[i];memoryCards[i]=memoryCards[j];memoryCards[j]=t;}Arrays.fill(memoryMatched,false);memoryFirst=memorySecond=-1;memoryPairs=memoryMoves=0;memoryHideAt=0;memoryWon=false;}
+    private void resetMaze(){clearResultOverlay();Arrays.fill(mazeWalls,15);boolean[] seen=new boolean[81];ArrayDeque<Integer> stack=new ArrayDeque<>();int cur=0;seen[cur]=true;int seenCount=1;while(seenCount<81){int r=cur/9,c=cur%9;int[] cand=new int[4];int n=0;if(r>0&&!seen[cur-9])cand[n++]=0;if(c<8&&!seen[cur+1])cand[n++]=1;if(r<8&&!seen[cur+9])cand[n++]=2;if(c>0&&!seen[cur-1])cand[n++]=3;if(n>0){int dir=cand[random.nextInt(n)],next=dir==0?cur-9:dir==1?cur+1:dir==2?cur+9:cur-1;stack.push(cur);int bit=dir==0?1:dir==1?2:dir==2?4:8,opp=dir==0?4:dir==1?8:dir==2?1:2;mazeWalls[cur]&=~bit;mazeWalls[next]&=~opp;cur=next;seen[cur]=true;seenCount++;}else cur=stack.pop();}mazePlayer=0;mazeExit=80;mazeMoves=0;mazeWon=false;}
+    private void resetNumberTap(){clearResultOverlay();for(int i=0;i<16;i++)numberTapOrder[i]=i+1;for(int i=15;i>0;i--){int j=random.nextInt(i+1),t=numberTapOrder[i];numberTapOrder[i]=numberTapOrder[j];numberTapOrder[j]=t;}numberTapNext=0;numberTapStart=SystemClock.elapsedRealtime();numberTapFinish=0;numberTapOver=false;}
+    private void resetQuickMath(){clearResultOverlay();mathScore=mathWrong=0;mathOver=false;mathDeadline=SystemClock.elapsedRealtime()+20000;newMathProblem();}
+    private void resetNim(){clearResultOverlay();nimStones=21;nimTurn=1;nimOver=false;nimAiDue=0;}
+    private void resetPong(){clearResultOverlay();pongX=pongY=pongBottomX=pongTopX=0;pongVx=pongVy=0;pongBottomScore=pongTopScore=0;pongRunning=false;pongOver=false;pongLastTick=0;}
+    private void resetBrickBreaker(){clearResultOverlay();Arrays.fill(bricks,true);brickLeft=24;brickScore=0;brickBallX=brickBallY=brickPaddleX=0;brickVx=brickVy=0;brickRunning=false;brickOver=false;brickWon=false;brickLastTick=0;}
+    private void resetDiceDuel(){clearResultOverlay();diceP1=diceP2=diceP1Score=diceP2Score=0;diceTurn=1;diceOver=false;}
+    private void resetSudoku(){clearResultOverlay();int[] base={1,2,3,4,3,4,1,2,2,1,4,3,4,3,2,1};int[] map={1,2,3,4};for(int i=3;i>0;i--){int j=random.nextInt(i+1),t=map[i];map[i]=map[j];map[j]=t;}for(int i=0;i<16;i++)sudokuSolution[i]=map[base[i]-1];System.arraycopy(sudokuSolution,0,sudoku,0,16);Arrays.fill(sudokuFixed,true);List<Integer> cells=new ArrayList<>();for(int i=0;i<16;i++)cells.add(i);for(int i=15;i>0;i--){int j=random.nextInt(i+1);int t=cells.get(i);cells.set(i,cells.get(j));cells.set(j,t);}for(int k=0;k<8;k++){int i=cells.get(k);sudoku[i]=0;sudokuFixed[i]=false;}sudokuSelected=-1;sudokuMistakes=0;sudokuWon=false;}
+
+    private void initPongGeometry(){RectF b=pongBoard();if(b.width()<=0)return;pongBottomX=pongTopX=b.centerX();pongX=b.centerX();pongY=b.centerY();float speed=minSide()*.50f;pongVx=(random.nextBoolean()?1:-1)*speed*.48f;pongVy=speed;}
+    private void initBrickGeometry(){RectF b=brickBoard();if(b.width()<=0)return;brickPaddleX=b.centerX();brickBallX=b.centerX();brickBallY=b.bottom-b.height()*.20f;float speed=minSide()*.46f;brickVx=speed*.46f;brickVy=-speed;}
+
+    private void drawModePicker(Canvas c){
+        float s=minSide(),w=getWidth(),h=getHeight();p.setColor(Color.argb(170,0,0,0));c.drawRect(0,0,w,h,p);float cardW=w*(roundScreen?.72f:.84f),cardH=s*.38f;RectF card=new RectF(w/2-cardW/2,h/2-cardH/2,w/2+cardW/2,h/2+cardH/2);p.setColor(Color.rgb(25,32,42));c.drawRoundRect(card,s*.045f,s*.045f,p);textFit(c,gameName(pendingModeChoice),w/2,card.top+cardH*.22f,s*.042f,Color.WHITE,true,Paint.Align.CENTER,cardW*.80f);text(c,"选择游戏模式",w/2,card.top+cardH*.36f,s*.025f,Color.rgb(160,173,190),false);RectF[] rs=modePickerRects(card);p.setColor(Color.rgb(56,112,240));c.drawRoundRect(rs[0],rs[0].height()/2,rs[0].height()/2,p);p.setColor(Color.rgb(46,55,69));c.drawRoundRect(rs[1],rs[1].height()/2,rs[1].height()/2,p);text(c,"单人 · 对战手表",rs[0].centerX(),rs[0].centerY()+rs[0].height()*.11f,rs[0].height()*.25f,Color.WHITE,true);text(c,"双人 · 同屏轮流",rs[1].centerX(),rs[1].centerY()+rs[1].height()*.11f,rs[1].height()*.25f,Color.WHITE,true);
+    }
+    private RectF[] modePickerRects(RectF card){float s=minSide(),gap=s*.020f,bh=s*.095f,left=card.left+s*.055f,right=card.right-s*.055f,top=card.top+card.height()*.47f;return new RectF[]{new RectF(left,top,right,top+bh),new RectF(left,top+bh+gap,right,top+bh*2+gap)};}
+    private boolean handleModePickerTouch(MotionEvent e){if(e.getActionMasked()!=MotionEvent.ACTION_UP)return true;float s=minSide(),w=getWidth(),h=getHeight(),cardW=w*(roundScreen?.72f:.84f),cardH=s*.38f;RectF card=new RectF(w/2-cardW/2,h/2-cardH/2,w/2+cardW/2,h/2+cardH/2);RectF[] rs=modePickerRects(card);int m=pendingModeChoice;if(rs[0].contains(e.getX(),e.getY())){aiMode[m]=true;startActualMode(m);}else if(rs[1].contains(e.getX(),e.getY())){aiMode[m]=false;startActualMode(m);}else if(!card.contains(e.getX(),e.getY())){pendingModeChoice=-1;invalidate();}return true;}
+
+    private String gameName(int gm){for(int i=0;i<MENU_MODES.length;i++)if(MENU_MODES[i]==gm)return MENU_TITLES[i];return "游戏";}
 
     private void placeTapTarget(){float s=minSide(),margin=s*.13f,top=headerBottom()+s*.05f,bottom=bottomBarTop()-s*.06f,left=margin,right=getWidth()-margin;if(right<=left||bottom<=top){targetX=getWidth()/2f;targetY=getHeight()/2f;return;}targetX=left+random.nextFloat()*(right-left);targetY=top+random.nextFloat()*(bottom-top);}
+
+    // ---------- Save / records ----------
+
+    private void recordLaunch(int gm){prefs.edit().putInt("stat_play_"+gm,prefs.getInt("stat_play_"+gm,0)+1).apply();}
+    private void recordResult(int gm,int kind,int metric){SharedPreferences.Editor e=prefs.edit();if(kind==1)e.putInt("stat_win_"+gm,prefs.getInt("stat_win_"+gm,0)+1);if(metric>prefs.getInt("stat_best_"+gm,0))e.putInt("stat_best_"+gm,metric);e.apply();}
+    private int currentMetric(){if(mode==GAME_2048)return game2048.getScore();if(mode==TAP_RUSH)return tapScore;if(mode==SNAKE)return snakeScore;if(mode==SIMON)return simonSeq.size();if(mode==COLOR_HUNT)return colorScore;if(mode==BOUNCE)return bounceHits;if(mode==MINI_MINES)return minesOpened;if(mode==MEMORY_MATCH)return memoryPairs;if(mode==QUICK_MATH)return mathScore;if(mode==BRICK_BREAKER)return brickScore;if(mode==NUMBER_TAP)return numberTapNext;if(mode==SUDOKU)return Math.max(1,20-sudokuMistakes);return 1;}
+    private String formatBest(int gm,int best){if(gm==GAME_2048||gm==TAP_RUSH||gm==SNAKE||gm==COLOR_HUNT||gm==BOUNCE||gm==QUICK_MATH||gm==BRICK_BREAKER)return String.valueOf(best);if(gm==SIMON)return best+" 轮";if(gm==MEMORY_MATCH)return best+" 对";return String.valueOf(best);}
+
+    public void persistCurrentState(){
+        if(!canPersistMode(mode))return;
+        if(isCurrentPersistedGameFinished()){prefs.edit().putBoolean("has_save",false).apply();savedResumeMode=-1;return;}
+        SharedPreferences.Editor e=prefs.edit();e.putBoolean("has_save",true).putInt("last_mode",mode).putBoolean("save_ai",aiMode[mode]);
+        if(mode==XIANGQI)e.putString("save_data",xiangqi.serialize());
+        else if(mode==GOMOKU)e.putString("save_data",join2d(gomoku)).putInt("save_turn",gomokuTurn);
+        else if(mode==GAME_2048)e.putString("save_data",game2048.serialize());
+        else if(mode==TICTACTOE)e.putString("save_data",joinInts(ttt)).putInt("save_turn",tttTurn);
+        else if(mode==SLIDE_PUZZLE)e.putString("save_data",joinInts(slidePuzzle)).putInt("save_aux",slideMoves);
+        else if(mode==LIGHTS_OUT)e.putString("save_data",joinBools(lights)).putInt("save_aux",lightsMoves);
+        else if(mode==MINI_MINES)e.putString("save_data",joinBools(mines)+"|"+joinBools(mineOpen)).putInt("save_aux",minesOpened);
+        else if(mode==CONNECT4)e.putString("save_data",joinInts(connect4)).putInt("save_turn",connect4Turn);
+        else if(mode==REVERSI)e.putString("save_data",joinInts(reversi)).putInt("save_turn",reversiTurn);
+        else if(mode==MEMORY_MATCH)e.putString("save_data",joinInts(memoryCards)+"|"+joinBools(memoryMatched)).putInt("save_aux",memoryMoves);
+        else if(mode==MAZE)e.putString("save_data",joinInts(mazeWalls)).putInt("save_aux",mazePlayer).putInt("save_aux2",mazeMoves);
+        else if(mode==NIM)e.putInt("save_aux",nimStones).putInt("save_turn",nimTurn);
+        else if(mode==SUDOKU)e.putString("save_data",joinInts(sudoku)+"|"+joinInts(sudokuSolution)+"|"+joinBools(sudokuFixed)).putInt("save_aux",sudokuMistakes);
+        e.apply();savedResumeMode=mode;
+    }
+
+    private boolean canPersistMode(int m){return m==XIANGQI||m==GOMOKU||m==GAME_2048||m==TICTACTOE||m==SLIDE_PUZZLE||m==LIGHTS_OUT||m==MINI_MINES||m==CONNECT4||m==REVERSI||m==MEMORY_MATCH||m==MAZE||m==NIM||m==SUDOKU;}
+    private boolean isCurrentPersistedGameFinished(){return mode==XIANGQI&&xiangqiOver||mode==GOMOKU&&gomokuOver||mode==GAME_2048&&over2048||mode==TICTACTOE&&tttOver||mode==SLIDE_PUZZLE&&slideWon||mode==LIGHTS_OUT&&lightsWon||mode==MINI_MINES&&minesOver||mode==CONNECT4&&connect4Over||mode==REVERSI&&reversiOver||mode==MEMORY_MATCH&&memoryWon||mode==MAZE&&mazeWon||mode==NIM&&nimOver||mode==SUDOKU&&sudokuWon;}
+
+    private void resumeSavedGame(){int m=savedResumeMode;if(m<0||!canPersistMode(m))return;resetMode(m);aiMode[m]=prefs.getBoolean("save_ai",true);String data=prefs.getString("save_data","");boolean ok=true;try{
+        if(m==XIANGQI)ok=xiangqi.restore(data);
+        else if(m==GOMOKU){ok=parse2d(data,gomoku);gomokuTurn=prefs.getInt("save_turn",1);message=gomokuTurn==1?"黑方回合":"白方回合";}
+        else if(m==GAME_2048)ok=game2048.restore(data);
+        else if(m==TICTACTOE){ok=parseInts(data,ttt);tttTurn=prefs.getInt("save_turn",1);}
+        else if(m==SLIDE_PUZZLE){ok=parseInts(data,slidePuzzle);slideMoves=prefs.getInt("save_aux",0);}
+        else if(m==LIGHTS_OUT){ok=parseBools(data,lights);lightsMoves=prefs.getInt("save_aux",0);}
+        else if(m==MINI_MINES){String[] q=data.split("\\|",-1);ok=q.length==2&&parseBools(q[0],mines)&&parseBools(q[1],mineOpen);minesOpened=prefs.getInt("save_aux",0);}
+        else if(m==CONNECT4){ok=parseInts(data,connect4);connect4Turn=prefs.getInt("save_turn",1);}
+        else if(m==REVERSI){ok=parseInts(data,reversi);reversiTurn=prefs.getInt("save_turn",1);}
+        else if(m==MEMORY_MATCH){String[] q=data.split("\\|",-1);ok=q.length==2&&parseInts(q[0],memoryCards)&&parseBools(q[1],memoryMatched);memoryMoves=prefs.getInt("save_aux",0);memoryPairs=0;for(boolean b:memoryMatched)if(b)memoryPairs++;memoryPairs/=2;}
+        else if(m==MAZE){ok=parseInts(data,mazeWalls);mazePlayer=prefs.getInt("save_aux",0);mazeMoves=prefs.getInt("save_aux2",0);}
+        else if(m==NIM){nimStones=prefs.getInt("save_aux",21);nimTurn=prefs.getInt("save_turn",1);}
+        else if(m==SUDOKU){String[] q=data.split("\\|",-1);ok=q.length==3&&parseInts(q[0],sudoku)&&parseInts(q[1],sudokuSolution)&&parseBools(q[2],sudokuFixed);sudokuMistakes=prefs.getInt("save_aux",0);}
+    }catch(Exception ex){ok=false;}if(!ok){showToastHint("存档损坏，已开始新游戏");resetMode(m);}
+        if(ok&&aiMode[m]){long due=SystemClock.elapsedRealtime()+280;if(m==GOMOKU&&gomokuTurn==2)gomokuAiDue=due;else if(m==TICTACTOE&&tttTurn==2)tttAiDue=due;else if(m==CONNECT4&&connect4Turn==2)connect4AiDue=due;else if(m==REVERSI&&reversiTurn==2)reversiAiDue=due;else if(m==NIM&&nimTurn==2)nimAiDue=due;}
+        roundResultRecorded=false;recordLaunch(m);navigateTo(m,false);performHapticFeedback(HapticFeedbackConstants.CONFIRM);}
+
+    private String joinInts(int[] a){StringBuilder b=new StringBuilder();for(int i=0;i<a.length;i++){if(i>0)b.append(',');b.append(a[i]);}return b.toString();}
+    private String join2d(int[][] a){StringBuilder b=new StringBuilder();for(int[] row:a)for(int v:row){if(b.length()>0)b.append(',');b.append(v);}return b.toString();}
+    private boolean parseInts(String s,int[] out){String[] p=s.split(",");if(p.length!=out.length)return false;try{for(int i=0;i<out.length;i++)out[i]=Integer.parseInt(p[i]);return true;}catch(Exception e){return false;}}
+    private boolean parse2d(String s,int[][] out){String[] p=s.split(",");int n=0;for(int[] r:out)n+=r.length;if(p.length!=n)return false;try{int k=0;for(int y=0;y<out.length;y++)for(int x=0;x<out[y].length;x++)out[y][x]=Integer.parseInt(p[k++]);return true;}catch(Exception e){return false;}}
+    private String joinBools(boolean[] a){StringBuilder b=new StringBuilder();for(boolean v:a)b.append(v?'1':'0');return b.toString();}
+    private boolean parseBools(String s,boolean[] out){if(s.length()!=out.length)return false;for(int i=0;i<out.length;i++)out[i]=s.charAt(i)=='1';return true;}
 
     // ---------- Math / gesture helpers ----------
 

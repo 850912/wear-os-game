@@ -42,6 +42,24 @@ public final class XiangqiEngine {
 
     public boolean isRedTurn() { return redTurn; }
 
+    public String serialize() {
+        StringBuilder sb = new StringBuilder(96);
+        sb.append(redTurn ? '1' : '0').append('|');
+        for (int y=0;y<ROWS;y++) for (int x=0;x<COLS;x++) sb.append(board[y][x] == 0 ? '.' : board[y][x]);
+        return sb.toString();
+    }
+
+    public boolean restore(String state) {
+        if (state == null) return false;
+        int bar = state.indexOf('|');
+        if (bar != 1 || state.length() < 2 + ROWS * COLS) return false;
+        redTurn = state.charAt(0) == '1';
+        String b = state.substring(2);
+        for (int i=0;i<ROWS*COLS;i++) board[i/COLS][i%COLS] = b.charAt(i) == '.' ? 0 : b.charAt(i);
+        history.clear();
+        return true;
+    }
+
     public boolean isRedPiece(char p) { return p != 0 && Character.isUpperCase(p); }
 
     public boolean belongsToTurn(int x, int y) {
