@@ -33,24 +33,29 @@ public final class GameHubView extends View {
     private static final int TICTACTOE = 7;
     private static final int COLOR_HUNT = 8;
     private static final int BOUNCE = 9;
-    private static final int ABOUT = 10;
-    private static final int DONATE = 11;
-    private static final int FEEDBACK = 12;
+    private static final int SLIDE_PUZZLE = 10;
+    private static final int LIGHTS_OUT = 11;
+    private static final int MINI_MINES = 12;
+    private static final int ROCK_PAPER_SCISSORS = 13;
+    private static final int ABOUT = 14;
+    private static final int DONATE = 15;
+    private static final int FEEDBACK = 16;
 
     private static final String FEEDBACK_URL = "https://www.coolapk.com/u/22532694";
     private static final String[] MENU_TITLES = {
             "中国象棋", "五子棋", "2048", "反应点击", "贪吃蛇", "记忆闪烁",
-            "井字棋", "色块猎手", "弹球挑战", "意见反馈", "关于"
+            "井字棋", "色块猎手", "弹球挑战", "数字华容道", "熄灯解谜", "迷你扫雷", "猜拳挑战", "意见反馈", "关于"
     };
     private static final String[] MENU_SUBS = {
             "完整规则 · 双人对弈", "双人轮流 · 五连获胜", "经典滑动 · 合并动画",
             "30 秒手速挑战", "滑动转向 · 10 分通关", "记住颜色 · 8 轮通关",
             "你先手 · 对战手表", "找出不同色 · 12 关通关", "拖动挡板 · 连续反弹 12 次",
+            "3×3 拼图 · 还原数字顺序", "4×4 灯阵 · 全部熄灭", "5×5 雷区 · 5 颗地雷", "三局两胜 · 对战手表",
             "在配对手机打开酷安主页", "作者 · 支持 · 开源说明"
     };
     private static final int[] MENU_MODES = {
             XIANGQI, GOMOKU, GAME_2048, TAP_RUSH, SNAKE, SIMON,
-            TICTACTOE, COLOR_HUNT, BOUNCE, FEEDBACK, ABOUT
+            TICTACTOE, COLOR_HUNT, BOUNCE, SLIDE_PUZZLE, LIGHTS_OUT, MINI_MINES, ROCK_PAPER_SCISSORS, FEEDBACK, ABOUT
     };
 
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -161,6 +166,26 @@ public final class GameHubView extends View {
     private boolean bounceRunning, bounceOver, bounceWon;
     private long bounceLastTick;
 
+    // 3x3 slide puzzle. 0 is the empty tile.
+    private final int[] slidePuzzle = new int[9];
+    private int slideMoves;
+    private boolean slideWon;
+
+    // Lights Out 4x4.
+    private final boolean[] lights = new boolean[16];
+    private int lightsMoves;
+    private boolean lightsWon;
+
+    // Mini Mines 5x5 with five mines.
+    private final boolean[] mines = new boolean[25];
+    private final boolean[] mineOpen = new boolean[25];
+    private boolean minesOver, minesWon;
+    private int minesOpened;
+
+    // Rock-paper-scissors, first to two points. 0 none, 1 rock, 2 paper, 3 scissors.
+    private int rpsPlayer, rpsAi, rpsPlayerScore, rpsAiScore;
+    private boolean rpsOver;
+
     // About / donation.
     private final Bitmap donateQr;
 
@@ -225,6 +250,10 @@ public final class GameHubView extends View {
                     case TICTACTOE: drawTicTacToe(c); break;
                     case COLOR_HUNT: drawColorHunt(c); break;
                     case BOUNCE: drawBounce(c); break;
+                    case SLIDE_PUZZLE: drawSlidePuzzle(c); break;
+                    case LIGHTS_OUT: drawLightsOut(c); break;
+                    case MINI_MINES: drawMiniMines(c); break;
+                    case ROCK_PAPER_SCISSORS: drawRockPaperScissors(c); break;
                     default: drawMenu(c);
                 }
         }
@@ -337,6 +366,14 @@ public final class GameHubView extends View {
             case BOUNCE:
                 p.setColor(Color.rgb(87,211,146));c.drawCircle(x,y-r*.25f,r*.27f,p);
                 p.setColor(Color.WHITE);c.drawRoundRect(new RectF(x-r*.72f,y+r*.34f,x+r*.72f,y+r*.57f),r*.12f,r*.12f,p); break;
+            case SLIDE_PUZZLE:
+                for(int i=0;i<4;i++){float ox=(i%2==0?-1:1)*r*.42f,oy=(i<2?-1:1)*r*.42f;p.setColor(i==3?Color.rgb(34,39,48):Color.rgb(255,177,72));c.drawRoundRect(new RectF(x+ox-r*.30f,y+oy-r*.30f,x+ox+r*.30f,y+oy+r*.30f),r*.11f,r*.11f,p);} break;
+            case LIGHTS_OUT:
+                for(int i=0;i<4;i++){float ox=(i%2==0?-1:1)*r*.42f,oy=(i<2?-1:1)*r*.42f;p.setColor(i==0||i==3?Color.rgb(255,225,97):Color.rgb(59,68,82));c.drawCircle(x+ox,y+oy,r*.28f,p);} break;
+            case MINI_MINES:
+                p.setColor(Color.rgb(72,82,96));c.drawCircle(x,y,r*.55f,p);p.setColor(Color.rgb(255,91,91));c.drawCircle(x,y,r*.23f,p);for(int i=0;i<8;i++){double a=i*Math.PI/4;c.drawRect((float)(x+Math.cos(a)*r*.72-r*.06),(float)(y+Math.sin(a)*r*.72-r*.06),(float)(x+Math.cos(a)*r*.72+r*.06),(float)(y+Math.sin(a)*r*.72+r*.06),p);} break;
+            case ROCK_PAPER_SCISSORS:
+                text(c,"拳",x-r*.48f,y+r*.18f,r*.62f,Color.WHITE,true);text(c,"剪",x+r*.42f,y+r*.18f,r*.62f,Color.rgb(255,204,86),true); break;
             case FEEDBACK:
                 p.setColor(Color.rgb(74,148,255));c.drawRoundRect(new RectF(x-r,y-r*.72f,x+r,y+r*.52f),r*.35f,r*.35f,p);
                 p.setColor(Color.WHITE);for(int i=-1;i<=1;i++)c.drawCircle(x+i*r*.34f,y-r*.08f,r*.09f,p);
@@ -915,18 +952,71 @@ public final class GameHubView extends View {
         invalidate();
     }
 
+    // ---------- Slide puzzle ----------
+
+    private void drawSlidePuzzle(Canvas c){
+        float s=minSide(),size=s*(roundScreen?.52f:.60f),left=(getWidth()-size)/2f,top=s*.215f,gap=s*.012f,cell=(size-gap*2)/3f;
+        drawGameHeader(c,"数字华容道",slideWon?"完成 · "+slideMoves+" 步":"点击空格旁的数字 · "+slideMoves+" 步",false);
+        p.setColor(Color.rgb(20,27,36));c.drawRoundRect(new RectF(left,top,left+size,top+size),s*.035f,s*.035f,p);
+        for(int i=0;i<9;i++){int v=slidePuzzle[i];int col=i%3,row=i/3;float l=left+col*(cell+gap),t=top+row*(cell+gap);if(v==0){p.setColor(Color.rgb(12,16,22));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.18f,cell*.18f,p);continue;}p.setColor(Color.rgb(255,174,66));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.18f,cell*.18f,p);text(c,String.valueOf(v),l+cell/2,t+cell*.62f,cell*.38f,Color.rgb(26,31,38),true);}
+        drawBottomBar(c,new String[]{"菜单","重开"},false);
+    }
+
+    private void handleSlidePuzzleTap(float x,float y){
+        if(slideWon)return;float s=minSide(),size=s*(roundScreen?.52f:.60f),left=(getWidth()-size)/2f,top=s*.215f,gap=s*.012f,cell=(size-gap*2)/3f;if(x<left||x>=left+size||y<top||y>=top+size)return;int col=(int)((x-left)/(cell+gap)),row=(int)((y-top)/(cell+gap));if(col>2||row>2)return;float ix=(x-left)-col*(cell+gap),iy=(y-top)-row*(cell+gap);if(ix>cell||iy>cell)return;int idx=row*3+col,z=findZero(slidePuzzle);if(Math.abs(idx/3-z/3)+Math.abs(idx%3-z%3)!=1)return;slidePuzzle[z]=slidePuzzle[idx];slidePuzzle[idx]=0;slideMoves++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(isSlideSolved()){slideWon=true;showResult(1,"拼图完成！","用了 "+slideMoves+" 步");}invalidate();
+    }
+    private int findZero(int[] a){for(int i=0;i<a.length;i++)if(a[i]==0)return i;return -1;}
+    private boolean isSlideSolved(){for(int i=0;i<8;i++)if(slidePuzzle[i]!=i+1)return false;return slidePuzzle[8]==0;}
+
+    // ---------- Lights Out ----------
+
+    private void drawLightsOut(Canvas c){
+        float s=minSide(),size=s*(roundScreen?.50f:.58f),left=(getWidth()-size)/2f,top=s*.22f,gap=s*.012f,cell=(size-gap*3)/4f;
+        drawGameHeader(c,"熄灯解谜",lightsWon?"全部熄灭 · "+lightsMoves+" 步":"点亮格会连动上下左右 · "+lightsMoves+" 步",false);
+        for(int i=0;i<16;i++){int col=i%4,row=i/4;float l=left+col*(cell+gap),t=top+row*(cell+gap);p.setColor(lights[i]?Color.rgb(255,218,91):Color.rgb(41,50,63));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.18f,cell*.18f,p);if(lights[i]){p.setColor(Color.argb(80,255,226,116));c.drawCircle(l+cell/2,t+cell/2,cell*.44f,p);}}
+        drawBottomBar(c,new String[]{"菜单","重开"},false);
+    }
+    private void handleLightsOutTap(float x,float y){if(lightsWon)return;float s=minSide(),size=s*(roundScreen?.50f:.58f),left=(getWidth()-size)/2f,top=s*.22f,gap=s*.012f,cell=(size-gap*3)/4f;if(x<left||x>=left+size||y<top||y>=top+size)return;int col=(int)((x-left)/(cell+gap)),row=(int)((y-top)/(cell+gap));if(col>3||row>3)return;float ix=(x-left)-col*(cell+gap),iy=(y-top)-row*(cell+gap);if(ix>cell||iy>cell)return;toggleLights(row*4+col,true);lightsMoves++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(allLightsOff()){lightsWon=true;showResult(1,"全部熄灭！","用了 "+lightsMoves+" 步");}invalidate();}
+    private void toggleLights(int idx,boolean feedback){int r=idx/4,c=idx%4;int[][] d={{0,0},{1,0},{-1,0},{0,1},{0,-1}};for(int[] q:d){int rr=r+q[1],cc=c+q[0];if(rr>=0&&rr<4&&cc>=0&&cc<4)lights[rr*4+cc]=!lights[rr*4+cc];}}
+    private boolean allLightsOff(){for(boolean b:lights)if(b)return false;return true;}
+
+    // ---------- Mini mines ----------
+
+    private void drawMiniMines(Canvas c){
+        float s=minSide(),size=s*(roundScreen?.52f:.60f),left=(getWidth()-size)/2f,top=s*.215f,gap=s*.008f,cell=(size-gap*4)/5f;
+        String sub=minesOver?(minesWon?"排雷成功":"踩到地雷"):("安全格 "+minesOpened+"/20");drawGameHeader(c,"迷你扫雷",sub,false);
+        for(int i=0;i<25;i++){int col=i%5,row=i/5;float l=left+col*(cell+gap),t=top+row*(cell+gap);if(!mineOpen[i]){p.setColor(Color.rgb(62,74,90));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.14f,cell*.14f,p);continue;}if(mines[i]){p.setColor(Color.rgb(255,91,101));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.14f,cell*.14f,p);text(c,"雷",l+cell/2,t+cell*.66f,cell*.38f,Color.WHITE,true);}else{p.setColor(Color.rgb(31,39,50));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.14f,cell*.14f,p);int n=countNeighborMines(i);if(n>0)text(c,String.valueOf(n),l+cell/2,t+cell*.66f,cell*.42f,mineNumberColor(n),true);}}
+        drawBottomBar(c,new String[]{"菜单","重开"},false);
+    }
+    private void handleMiniMinesTap(float x,float y){if(minesOver)return;float s=minSide(),size=s*(roundScreen?.52f:.60f),left=(getWidth()-size)/2f,top=s*.215f,gap=s*.008f,cell=(size-gap*4)/5f;if(x<left||x>=left+size||y<top||y>=top+size)return;int col=(int)((x-left)/(cell+gap)),row=(int)((y-top)/(cell+gap));if(col>4||row>4)return;float ix=(x-left)-col*(cell+gap),iy=(y-top)-row*(cell+gap);if(ix>cell||iy>cell)return;int idx=row*5+col;if(mineOpen[idx])return;mineOpen[idx]=true;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(mines[idx]){minesOver=true;minesWon=false;for(int i=0;i<25;i++)if(mines[i])mineOpen[i]=true;showResult(-1,"踩到地雷","点“重开”重新布雷");}else{minesOpened++;if(countNeighborMines(idx)==0)openMineZeros(idx);if(minesOpened>=20){minesOver=true;minesWon=true;showResult(1,"排雷成功！","找出了所有安全格");}}invalidate();}
+    private int countNeighborMines(int idx){int r=idx/5,c=idx%5,n=0;for(int dr=-1;dr<=1;dr++)for(int dc=-1;dc<=1;dc++){if(dr==0&&dc==0)continue;int rr=r+dr,cc=c+dc;if(rr>=0&&rr<5&&cc>=0&&cc<5&&mines[rr*5+cc])n++;}return n;}
+    private void openMineZeros(int start){ArrayDeque<Integer> q=new ArrayDeque<>();q.add(start);while(!q.isEmpty()){int idx=q.removeFirst(),r=idx/5,c=idx%5;if(countNeighborMines(idx)!=0)continue;for(int dr=-1;dr<=1;dr++)for(int dc=-1;dc<=1;dc++){int rr=r+dr,cc=c+dc;if(rr<0||rr>=5||cc<0||cc>=5)continue;int j=rr*5+cc;if(!mines[j]&&!mineOpen[j]){mineOpen[j]=true;minesOpened++;if(countNeighborMines(j)==0)q.add(j);}}}}
+    private int mineNumberColor(int n){int[] cs={Color.WHITE,Color.rgb(86,169,255),Color.rgb(82,211,145),Color.rgb(255,191,80),Color.rgb(255,103,117),Color.rgb(196,132,255),Color.rgb(103,220,225),Color.LTGRAY,Color.WHITE};return cs[Math.min(n,8)];}
+
+    // ---------- Rock paper scissors ----------
+
+    private void drawRockPaperScissors(Canvas c){
+        float s=minSide(),w=getWidth();String sub=rpsOver?(rpsPlayerScore>rpsAiScore?"你赢下本轮":"手表赢下本轮"):("比分 "+rpsPlayerScore+" : "+rpsAiScore+" · 三局两胜");drawGameHeader(c,"猜拳挑战",sub,false);
+        float top=s*.24f;if(rpsPlayer>0){text(c,rpsEmoji(rpsPlayer),w*.34f,top+s*.10f,s*.10f,Color.WHITE,true);text(c,rpsEmoji(rpsAi),w*.66f,top+s*.10f,s*.10f,Color.WHITE,true);text(c,"你",w*.34f,top+s*.16f,s*.026f,Color.rgb(165,177,193),false);text(c,"手表",w*.66f,top+s*.16f,s*.026f,Color.rgb(165,177,193),false);}else{text(c,"选择出拳",w/2,top+s*.10f,s*.046f,Color.WHITE,true);}
+        String[] names={"石头","布","剪刀"};String[] em={"拳","掌","剪"};float btnY=s*.49f,bw=s*.18f,gap=s*.018f;float total=bw*3+gap*2,left=(w-total)/2f;for(int i=0;i<3;i++){RectF r=new RectF(left+i*(bw+gap),btnY,left+i*(bw+gap)+bw,btnY+bw);p.setColor(Color.rgb(39,48,61));c.drawRoundRect(r,bw*.24f,bw*.24f,p);text(c,em[i],r.centerX(),r.top+bw*.52f,bw*.42f,Color.WHITE,true);text(c,names[i],r.centerX(),r.bottom-bw*.12f,bw*.16f,Color.rgb(176,187,201),true);}
+        drawBottomBar(c,new String[]{"菜单","重开"},false);
+    }
+    private void handleRpsTap(float x,float y){if(rpsOver)return;float s=minSide(),w=getWidth(),btnY=s*.49f,bw=s*.18f,gap=s*.018f,total=bw*3+gap*2,left=(w-total)/2f;if(y<btnY||y>btnY+bw)return;int choice=-1;for(int i=0;i<3;i++)if(x>=left+i*(bw+gap)&&x<=left+i*(bw+gap)+bw){choice=i+1;break;}if(choice<0)return;rpsPlayer=choice;rpsAi=1+random.nextInt(3);int result=rpsRound(rpsPlayer,rpsAi);if(result>0)rpsPlayerScore++;else if(result<0)rpsAiScore++;performHapticFeedback(result>0?HapticFeedbackConstants.CONFIRM:(result<0?HapticFeedbackConstants.REJECT:HapticFeedbackConstants.CLOCK_TICK));if(rpsPlayerScore>=2||rpsAiScore>=2){rpsOver=true;if(rpsPlayerScore>rpsAiScore)showResult(1,"你赢了！",rpsPlayerScore+" : "+rpsAiScore);else showResult(-1,"手表赢了",rpsPlayerScore+" : "+rpsAiScore);}invalidate();}
+    private int rpsRound(int a,int b){if(a==b)return 0;return(a==1&&b==3)||(a==2&&b==1)||(a==3&&b==2)?1:-1;}
+    private String rpsEmoji(int v){return v==1?"拳":v==2?"掌":"剪";}
+
     // ---------- About / donation ----------
 
     private void drawAbout(Canvas c){
         float s=minSide(),w=getWidth();
-        drawGameHeader(c,"关于","腕上小游戏 · v4.0",false);
+        drawGameHeader(c,"关于","腕上小游戏 · v5.0",false);
         float cardW=w*(roundScreen?.68f:.86f),left=(w-cardW)/2,top=s*.185f,bottom=bottomBarTop()-s*.030f;
         p.setColor(Color.rgb(25,31,40));c.drawRoundRect(new RectF(left,top,left+cardW,bottom),s*.045f,s*.045f,p);
         float y=top+s*.070f;
         text(c,"作者：黑白君",w/2,y,s*.040f,Color.WHITE,true);y+=s*.060f;
         drawWrappedCentered(c,"专为 Wear OS 小屏与圆屏优化的离线小游戏合集。",w/2,y,cardW*.84f,s*.026f,s*.039f,Color.rgb(190,199,212));
         y+=s*.090f;
-        textFit(c,"9 款游戏 · 动画反馈 · 圆屏安全区",w/2,y,s*.025f,Color.rgb(150,165,183),false,Paint.Align.CENTER,cardW*.84f);
+        textFit(c,"13 款游戏 · 动画反馈 · 圆屏安全区",w/2,y,s*.025f,Color.rgb(150,165,183),false,Paint.Align.CENTER,cardW*.84f);
 
         float btnH=s*.082f,gap=s*.018f;
         float feedbackTop=bottom-s*.045f-btnH;
@@ -1093,9 +1183,8 @@ public final class GameHubView extends View {
         int action=e.getActionMasked();
         if(action==MotionEvent.ACTION_DOWN){
             downX=lastX=e.getX();downY=lastY=e.getY();dragging=false;pinching=false;menuDragging=false;edgeBackOffset=0;
-            edgeBackDragging=mode!=MENU&&downX<=minSide()*.10f;
-            if(edgeBackDragging)clearResultOverlay();
-            gestureStartedOnControl=edgeBackDragging||isControlArea(downX,downY);menuScrollAtDown=menuScroll;
+            edgeBackDragging=false;
+            gestureStartedOnControl=isControlArea(downX,downY);menuScrollAtDown=menuScroll;
             if(mode==MENU)pressedMenuIndex=findMenuIndex(downX,downY);
             if(mode==BOUNCE&&!gestureStartedOnControl)handleBounceTouch(downX);
             invalidate();return true;
@@ -1104,7 +1193,6 @@ public final class GameHubView extends View {
             pinching=true;dragging=false;pinchStart=distance(e);zoomStart=zoom;return true;
         }
         if(action==MotionEvent.ACTION_MOVE){
-            if(edgeBackDragging){edgeBackOffset=clamp(e.getX()-downX,0,getWidth()*.48f);invalidate();return true;}
             if(mode==MENU){
                 float dy=e.getY()-downY;if(Math.abs(dy)>minSide()*.018f){menuDragging=true;pressedMenuIndex=-1;menuScroll=clamp(menuScrollAtDown-dy,0,menuMaxScroll);invalidate();}return true;
             }
@@ -1119,7 +1207,6 @@ public final class GameHubView extends View {
         if(action==MotionEvent.ACTION_POINTER_UP){pinching=false;return true;}
         if(action==MotionEvent.ACTION_UP){
             float ux=e.getX(),uy=e.getY();
-            if(edgeBackDragging){boolean commit=edgeBackOffset>=minSide()*.18f;edgeBackDragging=false;edgeBackOffset=0;if(commit)navigateTo(mode==DONATE?ABOUT:MENU,true);else{pageBackTransition=false;pageTransitionStart=SystemClock.elapsedRealtime();invalidate();}return true;}
             if(mode==MENU){int idx=(!menuDragging&&Math.hypot(ux-downX,uy-downY)<minSide()*.035f)?findMenuIndex(ux,uy):-1;pressedMenuIndex=-1;if(idx>=0)startMode(MENU_MODES[idx]);invalidate();return true;}
             if(!gestureStartedOnControl&&(mode==GAME_2048||mode==SNAKE)){
                 float dx=ux-downX,dy=uy-downY;
@@ -1160,6 +1247,10 @@ public final class GameHubView extends View {
         else if(mode==TICTACTOE)handleTicTacToeTap(x,y);
         else if(mode==COLOR_HUNT)handleColorHuntTap(x,y);
         else if(mode==BOUNCE)handleBounceTouch(x);
+        else if(mode==SLIDE_PUZZLE)handleSlidePuzzleTap(x,y);
+        else if(mode==LIGHTS_OUT)handleLightsOutTap(x,y);
+        else if(mode==MINI_MINES)handleMiniMinesTap(x,y);
+        else if(mode==ROCK_PAPER_SCISSORS)handleRpsTap(x,y);
         else if(mode==ABOUT){
             float s=minSide(),w=getWidth(),cardW=w*(roundScreen?.68f:.86f),top=s*.185f,bottom=bottomBarTop()-s*.030f;
             float btnH=s*.082f,gap=s*.018f,feedbackTop=bottom-s*.045f-btnH,donateTop=feedbackTop-gap-btnH;
@@ -1173,9 +1264,9 @@ public final class GameHubView extends View {
     private boolean handleBottomBarTap(float x,float y){
         if(y<bottomBarTop()-minSide()*.02f)return false;
         if(mode==XIANGQI){int idx=barIndex(x,y,xiangqiOver?2:3);if(idx<0)return false;if(idx==0)navigateTo(MENU,true);else if(idx==1)resetXiangqi();else if(idx==2&&!xiangqiOver&&xiangqi.undo()){selectedX=selectedY=pendingX=pendingY=-1;message="已撤销一步";}invalidate();return true;}
-        if(mode==GOMOKU||mode==GAME_2048||mode==TAP_RUSH||mode==SNAKE||mode==SIMON||mode==TICTACTOE||mode==COLOR_HUNT||mode==BOUNCE){
+        if(mode==GOMOKU||mode==GAME_2048||mode==TAP_RUSH||mode==SNAKE||mode==SIMON||mode==TICTACTOE||mode==COLOR_HUNT||mode==BOUNCE||mode==SLIDE_PUZZLE||mode==LIGHTS_OUT||mode==MINI_MINES||mode==ROCK_PAPER_SCISSORS){
             int idx=barIndex(x,y,2);if(idx<0)return false;if(idx==0)navigateTo(MENU,true);
-            else if(mode==GOMOKU)resetGomoku();else if(mode==GAME_2048)reset2048();else if(mode==TAP_RUSH)resetTapRush();else if(mode==SNAKE)resetSnake();else if(mode==SIMON)resetSimon();else if(mode==TICTACTOE)resetTicTacToe();else if(mode==COLOR_HUNT)resetColorHunt();else resetBounce();
+            else if(mode==GOMOKU)resetGomoku();else if(mode==GAME_2048)reset2048();else if(mode==TAP_RUSH)resetTapRush();else if(mode==SNAKE)resetSnake();else if(mode==SIMON)resetSimon();else if(mode==TICTACTOE)resetTicTacToe();else if(mode==COLOR_HUNT)resetColorHunt();else if(mode==BOUNCE)resetBounce();else if(mode==SLIDE_PUZZLE)resetSlidePuzzle();else if(mode==LIGHTS_OUT)resetLightsOut();else if(mode==MINI_MINES)resetMiniMines();else resetRps();
             invalidate();return true;
         }
         if(mode==ABOUT||mode==DONATE){int idx=barIndex(x,y,1);if(idx==0){navigateTo(mode==DONATE?ABOUT:MENU,true);invalidate();return true;}}
@@ -1231,12 +1322,12 @@ public final class GameHubView extends View {
     private void startMode(int m){
         if(m==FEEDBACK){openFeedbackOnPhone();return;}
         panX=panY=0;zoom=1f;
-        if(m==XIANGQI)resetXiangqi();else if(m==GOMOKU)resetGomoku();else if(m==GAME_2048)reset2048();else if(m==TAP_RUSH)resetTapRush();else if(m==SNAKE)resetSnake();else if(m==SIMON)resetSimon();else if(m==TICTACTOE)resetTicTacToe();else if(m==COLOR_HUNT)resetColorHunt();else if(m==BOUNCE)resetBounce();
+        if(m==XIANGQI)resetXiangqi();else if(m==GOMOKU)resetGomoku();else if(m==GAME_2048)reset2048();else if(m==TAP_RUSH)resetTapRush();else if(m==SNAKE)resetSnake();else if(m==SIMON)resetSimon();else if(m==TICTACTOE)resetTicTacToe();else if(m==COLOR_HUNT)resetColorHunt();else if(m==BOUNCE)resetBounce();else if(m==SLIDE_PUZZLE)resetSlidePuzzle();else if(m==LIGHTS_OUT)resetLightsOut();else if(m==MINI_MINES)resetMiniMines();else if(m==ROCK_PAPER_SCISSORS)resetRps();
         navigateTo(m,false);performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
     }
     public boolean goBack(){if(mode==DONATE){navigateTo(ABOUT,true);return true;}if(mode!=MENU){navigateTo(MENU,true);return true;}return false;}
 
-    private void resetAll(){resetXiangqi();resetGomoku();reset2048();resetTapRush();resetSnake();resetSimon();resetTicTacToe();resetColorHunt();resetBounce();mode=MENU;menuScroll=0;pageTransitionStart=SystemClock.elapsedRealtime();}
+    private void resetAll(){resetXiangqi();resetGomoku();reset2048();resetTapRush();resetSnake();resetSimon();resetTicTacToe();resetColorHunt();resetBounce();resetSlidePuzzle();resetLightsOut();resetMiniMines();resetRps();mode=MENU;menuScroll=0;pageTransitionStart=SystemClock.elapsedRealtime();}
     private void resetXiangqi(){clearResultOverlay();xiangqi.reset();selectedX=selectedY=pendingX=pendingY=-1;xiangqiOver=false;xqAnimPiece=0;message="红方回合";panX=panY=0;zoom=1f;}
     private void resetGomoku(){clearResultOverlay();for(int y=0;y<15;y++)for(int x=0;x<15;x++)gomoku[y][x]=0;gomokuTurn=1;gomokuPendingX=gomokuPendingY=-1;gomokuOver=false;gomokuLastX=gomokuLastY=-1;message="黑方回合";panX=panY=0;zoom=1f;}
     private void reset2048(){clearResultOverlay();game2048.reset();frame2048=null;over2048=false;reached2048Shown=false;}
@@ -1246,6 +1337,10 @@ public final class GameHubView extends View {
     private void resetTicTacToe(){clearResultOverlay();for(int i=0;i<9;i++)ttt[i]=0;tttOver=false;tttResult=0;tttLast=-1;tttAiDue=0;}
     private void resetColorHunt(){clearResultOverlay();colorGridN=2;colorScore=0;colorOver=false;colorWon=false;colorTarget=random.nextInt(4);colorDeadline=SystemClock.elapsedRealtime()+25000;colorFlash=-1;}
     private void resetBounce(){clearResultOverlay();bounceHits=0;bounceRunning=false;bounceOver=false;bounceWon=false;bounceLastTick=0;bounceBallX=bounceBallY=bounceVx=bounceVy=bouncePaddleX=0;}
+    private void resetSlidePuzzle(){clearResultOverlay();for(int i=0;i<8;i++)slidePuzzle[i]=i+1;slidePuzzle[8]=0;slideMoves=0;slideWon=false;for(int i=0;i<80;i++){int z=findZero(slidePuzzle),zr=z/3,zc=z%3;int[] cand=new int[4];int n=0;if(zr>0)cand[n++]=z-3;if(zr<2)cand[n++]=z+3;if(zc>0)cand[n++]=z-1;if(zc<2)cand[n++]=z+1;int j=cand[random.nextInt(n)];slidePuzzle[z]=slidePuzzle[j];slidePuzzle[j]=0;}if(isSlideSolved())resetSlidePuzzle();}
+    private void resetLightsOut(){clearResultOverlay();lightsMoves=0;lightsWon=false;for(int i=0;i<16;i++)lights[i]=false;for(int i=0;i<18;i++)toggleLights(random.nextInt(16),false);if(allLightsOff())resetLightsOut();}
+    private void resetMiniMines(){clearResultOverlay();for(int i=0;i<25;i++){mines[i]=false;mineOpen[i]=false;}int placed=0;while(placed<5){int i=random.nextInt(25);if(!mines[i]){mines[i]=true;placed++;}}minesOver=false;minesWon=false;minesOpened=0;}
+    private void resetRps(){clearResultOverlay();rpsPlayer=rpsAi=0;rpsPlayerScore=rpsAiScore=0;rpsOver=false;}
 
     private void placeTapTarget(){float s=minSide(),margin=s*.13f,top=headerBottom()+s*.05f,bottom=bottomBarTop()-s*.06f,left=margin,right=getWidth()-margin;if(right<=left||bottom<=top){targetX=getWidth()/2f;targetY=getHeight()/2f;return;}targetX=left+random.nextFloat()*(right-left);targetY=top+random.nextFloat()*(bottom-top);}
 

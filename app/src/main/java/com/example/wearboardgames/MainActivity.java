@@ -28,7 +28,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (gameView != null && gameView.goBack()) return;
-        super.onBackPressed();
+        // Intentionally consume Back so Wear OS edge/back gestures cannot navigate
+        // inside this game collection. Use the in-app buttons for navigation.
     }
 }

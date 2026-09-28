@@ -1,0 +1,21 @@
+Wear Board Games v5.0
+
+1. 游戏数量：9 -> 13
+   - 新增：数字华容道（3x3）
+   - 新增：熄灯解谜（4x4）
+   - 新增：迷你扫雷（5x5 / 5 mines）
+   - 新增：猜拳挑战（三局两胜）
+
+2. 禁用 App 内右划返回
+   - 禁用 GameHubView 原左边缘右滑返回触发
+   - 保留 android:windowSwipeToDismiss=false
+   - MainActivity 消费 Back 事件
+   - 页面导航改为只使用 App 内“菜单 / 返回”按钮
+
+3. 版本更新
+   - versionCode 5
+   - versionName 5.0
+   - 关于页显示 v5.0 / 13 款游戏
+
+4. 素材
+   - 新增游戏全部 Canvas 自绘，无新增第三方图片素材

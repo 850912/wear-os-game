@@ -1,90 +1,50 @@
-# 腕上小游戏 Wear OS · v4.0
+# 腕上小游戏 Wear OS · v5.0
 
 原生 Java + Android Canvas 的 Wear OS 小游戏合集，包名保持：
 
 `com.example.wearboardgames`
 
-## v4.0 更新内容
+## v5.0 更新内容
 
-### 游戏从 6 款扩展到 9 款
+### 游戏从 9 款扩展到 13 款
 
-保留：
+保留原有 9 款：
 - 中国象棋
 - 五子棋
 - 2048
 - 反应点击
 - 贪吃蛇
 - 记忆闪烁
+- 井字棋
+- 色块猎手
+- 弹球挑战
 
-新增：
-- **井字棋**：玩家执 X，对战本地轻量 AI；AI 会优先取胜、阻挡、抢中心与角位。
-- **色块猎手**：在逐步增大的色块阵列中找出不同色，12 关通关；点错会扣时间。
-- **弹球挑战**：拖动底部挡板接球，连续反弹 12 次通关；球速和反弹角度会动态变化。
+新增 4 款：
+- **数字华容道**：3×3 数字拼图，点击空格旁数字移动，恢复 1–8 顺序即通关。
+- **熄灯解谜**：4×4 灯阵，点击一格会联动自身与上下左右，全部熄灭即通关。
+- **迷你扫雷**：5×5 雷区、5 颗地雷，点击安全格并支持空白区域自动展开，打开全部 20 个安全格获胜。
+- **猜拳挑战**：石头剪刀布对战手表，三局两胜。
 
-### 圆屏适配继续加强
+所有新增游戏都使用 Android Canvas 原生绘制，不需要联网下载素材，也没有新增图片版权依赖。
 
-- 主菜单在圆屏中使用更窄的安全宽度。
-- 菜单卡片靠近圆形屏幕上下边缘时会缩小，减少边缘裁切，并让中心项目更突出。
-- 游戏棋盘、按钮、结果提示卡、关于页和二维码页均按 `min(width, height)` 百分比布局。
-- 新增 3 款游戏的主要交互区域全部位于圆屏中央安全区域。
-- 底部操作区保持在圆屏下弧线内，不把关键按钮贴到四角。
+### 禁用 App 内右划返回
 
-此方向参考 Android 官方 Wear OS 文档关于圆屏预览、不同屏幕尺寸和圆屏列表变形的建议：
-- https://developer.android.com/training/wearables/compose/previews
-- https://developer.android.com/training/wearables/compose/screen-size
-- https://developer.android.com/training/wearables/compose/lists
+- 删除 `GameHubView` 原先的“左边缘右滑返回 + 跟手动画”触发逻辑。
+- `AppTheme` 继续设置 `android:windowSwipeToDismiss=false`，让水平滑动优先属于游戏操作。
+- `MainActivity` 消费系统 Back 事件，避免系统返回手势在 App 内切页或退出。
+- 页面导航统一使用游戏底部的“菜单 / 返回”按钮；退出 App 可使用 Wear OS Home / 表冠。
 
-本项目仍使用 Canvas 自绘界面，没有整体迁移到 Compose，但采用了同样的“安全区 + 百分比尺寸 + 边缘缩放”思路。
+### 圆屏适配
 
-### App / 手势 / 游戏动画
+- 主菜单继续使用圆屏安全宽度与边缘卡片缩放。
+- 4 款新增游戏主交互区集中在圆屏中央约 50%–52% 的安全区域。
+- 底部“菜单 / 重开”按钮保持在下弧线安全区内。
 
-- 页面进入使用轻微平移 + 缩放动画。
-- 返回使用反向页面动画。
-- 新增**左边缘右滑返回**：从屏幕左侧边缘向右滑动，可以返回上一层；拖动过程中页面跟手移动。
-- 2048、贪吃蛇等游戏的中央水平滑动仍保留为游戏操作，不与返回冲突。
-- 主菜单按压卡片增加缩放反馈。
-- 井字棋落子、色块选择、弹球、象棋移动、五子棋落子、2048 合并等均带动画。
+### 其他功能
 
-### 胜利 / 失败结果反馈
-
-增加统一的大尺寸结果层：
-- 胜利：绿色成功卡 + 勾号 + 彩色粒子动画 + 震动。
-- 失败：红色失败卡 + 叉号 + 脉冲圆环 + 震动。
-- 平局 / 中性结果：黄色提示卡。
-
-并给原有游戏补充明确目标：
-- 反应点击：30 秒达到 20 分视为通关。
-- 贪吃蛇：吃到 10 个食物通关。
-- 记忆闪烁：完成 8 轮通关。
-- 2048：首次合成 2048 会显示短暂庆祝提示，仍可继续挑战更高数字。
-
-### 作者二维码已替换
-
-`app/src/main/res/drawable-nodpi/donate_qr.png` 已替换为本次提供的二维码图片，并只裁掉外围大面积绿色空白，以便在手表上放大二维码和昵称区域；二维码内部图案未重绘。
-
-### 意见反馈：在配对手机打开酷安
-
-主菜单和“关于”页都提供“意见反馈”入口，目标地址：
-
-`https://www.coolapk.com/u/22532694`
-
-实现使用 Android 官方 `RemoteActivityHelper`：
-- `Intent.ACTION_VIEW`
-- `Intent.CATEGORY_BROWSABLE`
-- `targetNodeId = null`，从手表请求在配对手机打开公开链接
-- 入口必须由用户主动点击触发
-
-参考：
-- https://developer.android.com/reference/androidx/wear/remote/interactions/RemoteActivityHelper
-- https://developer.android.com/training/wearables/apps/standalone-apps
-
-工程增加稳定版依赖：
-
-```gradle
-implementation "androidx.wear:wear-remote-interactions:1.2.0"
-```
-
-如果手表暂时无法把请求发送到手机，界面会显示“未能连接手机，请确认蓝牙连接”。
+- 保留统一胜利 / 失败结果层与震动反馈。
+- 保留“意见反馈”在配对手机打开酷安主页。
+- 保留作者支持二维码页。
 
 ## 工程参数
 
@@ -96,7 +56,7 @@ implementation "androidx.wear:wear-remote-interactions:1.2.0"
 - JDK `17`
 - Java + Android Canvas
 - AndroidX Wear Remote Interactions `1.2.0`
-- 版本：`4.0` / `versionCode 4`
+- 版本：`5.0` / `versionCode 5`
 
 ## 编译
 
@@ -116,4 +76,4 @@ GitHub Actions 配置仍位于 `.github/workflows/android.yml`，推送到 `main
 
 ## 说明
 
-由于 2048 / 贪吃蛇等游戏需要水平滑动，Activity 继续关闭系统级 `windowSwipeToDismiss`，避免整页被系统直接划走；应用内部用“左边缘右滑返回 + 跟手动画”替代，普通游戏区域的滑动不会误触返回。
+由于 2048 / 贪吃蛇等游戏需要水平滑动，Activity 关闭系统级 `windowSwipeToDismiss`；v5.0 同时移除了应用内部的边缘右滑返回，避免游戏过程中误触返回。
