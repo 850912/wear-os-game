@@ -1,31 +1,14 @@
-# 腕上小游戏 Wear OS · v3.0
+# 腕上小游戏 Wear OS · v4.0
 
-这是在上一版 `wearboardgames_optimized` 基础上继续优化的 Wear OS 原生 Java 工程，包名保持：
+原生 Java + Android Canvas 的 Wear OS 小游戏合集，包名保持：
 
 `com.example.wearboardgames`
 
-## v3.0 本次更新
+## v4.0 更新内容
 
-### 1. 2048 UI / 动画重做
-- 改为经典 2048 风格的米白背景、棕色棋盘、经典数字块配色。
-- 增加“分数 / 最佳”双计分框，最佳分数使用 `SharedPreferences` 持久保存。
-- 增加数字块滑动位移动画。
-- 合并时增加弹跳 / 回弹动画。
-- 新生成数字块增加缩放出现动画。
-- 达到 2048 后可继续挑战更高数字。
-- 逻辑拆分为独立 `Game2048Engine.java`，便于测试和维护。
+### 游戏从 6 款扩展到 9 款
 
-2048 的视觉方向参考 Gabriele Cirulli 的开源 2048 项目（MIT）；本工程使用 Android Canvas 重新实现，详见 `THIRD_PARTY_NOTICES.md`。
-
-### 2. 游戏动画改进
-- 中国象棋：确认移动后棋子从起点平滑移动到终点。
-- 五子棋：落子增加缩放回弹动画。
-- 反应点击：目标增加呼吸脉冲效果。
-- 新增贪吃蛇：连续移动、加速、食物脉冲与震动反馈。
-- 新增记忆闪烁：四颜色按序闪烁，玩家复现序列。
-
-### 3. 游戏列表
-当前共 6 款游戏：
+保留：
 - 中国象棋
 - 五子棋
 - 2048
@@ -33,71 +16,104 @@
 - 贪吃蛇
 - 记忆闪烁
 
-主菜单改为纵向可滚动大卡片，圆形屏幕会缩窄卡片和底部按钮，避免边缘被圆屏裁切。
+新增：
+- **井字棋**：玩家执 X，对战本地轻量 AI；AI 会优先取胜、阻挡、抢中心与角位。
+- **色块猎手**：在逐步增大的色块阵列中找出不同色，12 关通关；点错会扣时间。
+- **弹球挑战**：拖动底部挡板接球，连续反弹 12 次通关；球速和反弹角度会动态变化。
 
-### 4. 关于 / 捐赠
-- 新增“关于”页。
-- 作者显示为：**黑白君**。
-- 新增“支持作者”入口。
-- 捐赠页使用用户提供的微信收款码，并针对手表屏幕裁切为更大的可扫描区域。
-- 收款码只做裁切，没有重绘二维码内容；已在本地用二维码识别器校验裁切后的二维码仍可识别。
-- 所有标题、说明和按钮均按屏幕尺寸动态适配，尽量避免圆形小屏文字或按钮显示不全。
+### 圆屏适配继续加强
 
-### 5. 禁用右划返回
-按照需求，在主题中加入：
+- 主菜单在圆屏中使用更窄的安全宽度。
+- 菜单卡片靠近圆形屏幕上下边缘时会缩小，减少边缘裁切，并让中心项目更突出。
+- 游戏棋盘、按钮、结果提示卡、关于页和二维码页均按 `min(width, height)` 百分比布局。
+- 新增 3 款游戏的主要交互区域全部位于圆屏中央安全区域。
+- 底部操作区保持在圆屏下弧线内，不把关键按钮贴到四角。
 
-```xml
-<item name="android:windowSwipeToDismiss">false</item>
+此方向参考 Android 官方 Wear OS 文档关于圆屏预览、不同屏幕尺寸和圆屏列表变形的建议：
+- https://developer.android.com/training/wearables/compose/previews
+- https://developer.android.com/training/wearables/compose/screen-size
+- https://developer.android.com/training/wearables/compose/lists
+
+本项目仍使用 Canvas 自绘界面，没有整体迁移到 Compose，但采用了同样的“安全区 + 百分比尺寸 + 边缘缩放”思路。
+
+### App / 手势 / 游戏动画
+
+- 页面进入使用轻微平移 + 缩放动画。
+- 返回使用反向页面动画。
+- 新增**左边缘右滑返回**：从屏幕左侧边缘向右滑动，可以返回上一层；拖动过程中页面跟手移动。
+- 2048、贪吃蛇等游戏的中央水平滑动仍保留为游戏操作，不与返回冲突。
+- 主菜单按压卡片增加缩放反馈。
+- 井字棋落子、色块选择、弹球、象棋移动、五子棋落子、2048 合并等均带动画。
+
+### 胜利 / 失败结果反馈
+
+增加统一的大尺寸结果层：
+- 胜利：绿色成功卡 + 勾号 + 彩色粒子动画 + 震动。
+- 失败：红色失败卡 + 叉号 + 脉冲圆环 + 震动。
+- 平局 / 中性结果：黄色提示卡。
+
+并给原有游戏补充明确目标：
+- 反应点击：30 秒达到 20 分视为通关。
+- 贪吃蛇：吃到 10 个食物通关。
+- 记忆闪烁：完成 8 轮通关。
+- 2048：首次合成 2048 会显示短暂庆祝提示，仍可继续挑战更高数字。
+
+### 作者二维码已替换
+
+`app/src/main/res/drawable-nodpi/donate_qr.png` 已替换为本次提供的二维码图片，并只裁掉外围大面积绿色空白，以便在手表上放大二维码和昵称区域；二维码内部图案未重绘。
+
+### 意见反馈：在配对手机打开酷安
+
+主菜单和“关于”页都提供“意见反馈”入口，目标地址：
+
+`https://www.coolapk.com/u/22532694`
+
+实现使用 Android 官方 `RemoteActivityHelper`：
+- `Intent.ACTION_VIEW`
+- `Intent.CATEGORY_BROWSABLE`
+- `targetNodeId = null`，从手表请求在配对手机打开公开链接
+- 入口必须由用户主动点击触发
+
+参考：
+- https://developer.android.com/reference/androidx/wear/remote/interactions/RemoteActivityHelper
+- https://developer.android.com/training/wearables/apps/standalone-apps
+
+工程增加稳定版依赖：
+
+```gradle
+implementation "androidx.wear:wear-remote-interactions:1.2.0"
 ```
 
-这样 Wear OS Activity 不再被系统的左到右滑动手势直接关闭，2048 和贪吃蛇可以正常使用水平滑动。
-
-物理返回键 / 系统返回事件仍然可用：游戏页先返回主菜单，捐赠页先返回关于页，主菜单再退出应用。
-
-### 6. 原有中国象棋规则
-继续保留上一版完整规则判断：
-- 车直线及阻挡
-- 马走日与蹩马腿
-- 炮架
-- 象眼与不过河
-- 士九宫
-- 将帅九宫 / 将帅照面
-- 兵卒过河
-- 禁止送将
-- 将军与无合法着法判负
-- 撤销一步
+如果手表暂时无法把请求发送到手机，界面会显示“未能连接手机，请确认蓝牙连接”。
 
 ## 工程参数
+
 - `minSdk 30`
 - `targetSdk 35`
 - `compileSdk 35`
+- Android Gradle Plugin `8.6.1`
+- Gradle `8.7`
+- JDK `17`
 - Java + Android Canvas
-- 无第三方运行时依赖
-- 版本：`3.0` / `versionCode 3`
+- AndroidX Wear Remote Interactions `1.2.0`
+- 版本：`4.0` / `versionCode 4`
 
 ## 编译
-用 Android Studio 打开工程根目录，完成 Gradle Sync 后选择 **Build > Build APK(s)**。如果你本机已有 Gradle，也可以在工程根目录执行 `gradle assembleDebug`。
 
-生成位置通常为：
+用 Android Studio 打开工程根目录，完成 Gradle Sync 后选择 **Build > Build APK(s)**。
+
+如果本机已有 Gradle 8.7，可在工程根目录运行：
+
+```bash
+gradle assembleDebug --no-daemon
+```
+
+APK 通常生成在：
 
 `app/build/outputs/apk/debug/app-debug.apk`
 
-当前交付环境没有完整 Android SDK / Build Tools，因此这里提供的是已经做过 Java 语法级检查、2048 逻辑测试和 XML 解析检查的完整工程源码；建议最终在 Android Studio / 真机 Wear OS 上再做一轮触控和二维码扫描测试。
+GitHub Actions 配置仍位于 `.github/workflows/android.yml`，推送到 `main` 后可自动构建 debug APK。
 
-## CI / GitHub Actions 构建兼容性
+## 说明
 
-本工程已固定为以下兼容组合：
-
-- Android Gradle Plugin: **8.6.1**
-- Gradle: **8.7**
-- JDK: **17**
-- compileSdk / targetSdk: **35**
-
-这样可以直接兼容 GitHub Actions 中的 Gradle 8.7，避免 `Minimum supported Gradle version is 8.9` 错误。
-工程同时附带 `.github/workflows/android.yml`，推送到 `main` 后可自动构建并上传 `app-debug.apk`。
-
-## GitHub Actions 修复（2026-09-27）
-
-如果日志出现 `Warning: Failed to find package 'tools'`，说明旧 workflow 请求了已经废弃的 Android SDK `tools` 包。本项目当前的 `.github/workflows/android.yml` 已移除该包，并改为安装 `platform-tools`、`platforms;android-35` 和 `build-tools;35.0.0`。
-
-Termux 推荐直接运行项目根目录的 `termux_push_build.sh`。这个脚本会同步 `.github`，可避免旧版推送脚本因为排除 `.github/` 而导致 GitHub 上的 workflow 一直没有更新。
+由于 2048 / 贪吃蛇等游戏需要水平滑动，Activity 继续关闭系统级 `windowSwipeToDismiss`，避免整页被系统直接划走；应用内部用“左边缘右滑返回 + 跟手动画”替代，普通游戏区域的滑动不会误触返回。

@@ -30,26 +30,55 @@ public final class GameHubView extends View {
     private static final int TAP_RUSH = 4;
     private static final int SNAKE = 5;
     private static final int SIMON = 6;
-    private static final int ABOUT = 7;
-    private static final int DONATE = 8;
+    private static final int TICTACTOE = 7;
+    private static final int COLOR_HUNT = 8;
+    private static final int BOUNCE = 9;
+    private static final int ABOUT = 10;
+    private static final int DONATE = 11;
+    private static final int FEEDBACK = 12;
 
+    private static final String FEEDBACK_URL = "https://www.coolapk.com/u/22532694";
     private static final String[] MENU_TITLES = {
-            "中国象棋", "五子棋", "2048", "反应点击", "贪吃蛇", "记忆闪烁", "关于"
+            "中国象棋", "五子棋", "2048", "反应点击", "贪吃蛇", "记忆闪烁",
+            "井字棋", "色块猎手", "弹球挑战", "意见反馈", "关于"
     };
     private static final String[] MENU_SUBS = {
             "完整规则 · 双人对弈", "双人轮流 · 五连获胜", "经典滑动 · 合并动画",
-            "30 秒手速挑战", "滑动转向 · 越吃越快", "记住颜色 · 按顺序复现", "作者 · 捐赠 · 开源说明"
+            "30 秒手速挑战", "滑动转向 · 10 分通关", "记住颜色 · 8 轮通关",
+            "你先手 · 对战手表", "找出不同色 · 12 关通关", "拖动挡板 · 连续反弹 12 次",
+            "在配对手机打开酷安主页", "作者 · 支持 · 开源说明"
     };
-    private static final int[] MENU_MODES = {XIANGQI, GOMOKU, GAME_2048, TAP_RUSH, SNAKE, SIMON, ABOUT};
+    private static final int[] MENU_MODES = {
+            XIANGQI, GOMOKU, GAME_2048, TAP_RUSH, SNAKE, SIMON,
+            TICTACTOE, COLOR_HUNT, BOUNCE, FEEDBACK, ABOUT
+    };
 
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float d;
     private final Random random = new Random();
     private final boolean roundScreen;
     private final SharedPreferences prefs;
+    private final PhoneLinkOpener phoneLinkOpener;
 
     private int mode = MENU;
     private String message = "选择一个游戏开始";
+
+    // Page / navigation motion. Back transitions enter from the left, forward transitions from the right.
+    private long pageTransitionStart;
+    private boolean pageBackTransition;
+    private boolean edgeBackDragging;
+    private float edgeBackOffset;
+
+    // Shared result overlay for clear success / failure feedback.
+    private long resultOverlayStart;
+    private int resultOverlayKind; // 1 success, -1 failure, 2 neutral
+    private String resultOverlayTitle = "";
+    private String resultOverlaySub = "";
+    private boolean resultOverlayAutoHide;
+
+    // Temporary in-app hint, mainly for remote phone actions.
+    private String toastHint = "";
+    private long toastHintUntil;
 
     // Menu scrolling / press feedback.
     private float menuScroll;
@@ -93,23 +122,44 @@ public final class GameHubView extends View {
     private float targetX, targetY;
     private int tapScore;
     private long tapStart;
-    private boolean tapOver;
+    private boolean tapOver, tapResultShown;
 
     // Snake.
     private static final int SNAKE_N = 12;
     private final ArrayDeque<Cell> snake = new ArrayDeque<>();
     private int snakeDir = 1; // 0 up, 1 right, 2 down, 3 left
     private int snakeFoodX, snakeFoodY, snakeScore;
-    private boolean snakeOver, snakeRunning;
+    private boolean snakeOver, snakeRunning, snakeWon;
     private long snakeNextTick;
 
     // Simon memory.
     private final List<Integer> simonSeq = new ArrayList<>();
-    private boolean simonShowing, simonOver;
+    private boolean simonShowing, simonOver, simonWon;
     private int simonInputIndex;
     private long simonRoundStart;
     private int simonTapFlash = -1;
     private long simonTapFlashUntil;
+
+    // Tic-tac-toe: player X versus a small local AI.
+    private final int[] ttt = new int[9];
+    private boolean tttOver;
+    private int tttResult; // 1 player win, -1 AI win, 2 draw
+    private int tttLast = -1;
+    private long tttMarkAnimStart;
+    private long tttAiDue;
+
+    // Color Hunt.
+    private int colorGridN, colorTarget, colorScore;
+    private long colorDeadline;
+    private boolean colorOver, colorWon, colorFlashGood;
+    private int colorFlash = -1;
+    private long colorFlashUntil;
+
+    // Bounce challenge.
+    private float bounceBallX, bounceBallY, bounceVx, bounceVy, bouncePaddleX;
+    private int bounceHits;
+    private boolean bounceRunning, bounceOver, bounceWon;
+    private long bounceLastTick;
 
     // About / donation.
     private final Bitmap donateQr;
@@ -120,6 +170,7 @@ public final class GameHubView extends View {
         roundScreen = getResources().getConfiguration().isScreenRound();
         prefs = context.getSharedPreferences("wear_games", Context.MODE_PRIVATE);
         best2048 = prefs.getInt("best_2048", 0);
+        phoneLinkOpener = new PhoneLinkOpener(context);
         donateQr = BitmapFactory.decodeResource(getResources(), R.drawable.donate_qr);
         setBackgroundColor(Color.BLACK);
         p.setTypeface(Typeface.create("sans", Typeface.NORMAL));
@@ -134,6 +185,25 @@ public final class GameHubView extends View {
 
     @Override protected void onDraw(Canvas c) {
         super.onDraw(c);
+        long now = SystemClock.elapsedRealtime();
+        float t = pageTransitionStart == 0 ? 1f : clamp((now - pageTransitionStart) / 230f, 0f, 1f);
+        float eased = easeOutCubic(t);
+        c.save();
+        if (t < 1f) {
+            float sign = pageBackTransition ? -1f : 1f;
+            c.translate(sign * (1f - eased) * minSide() * .11f, 0);
+            float scale = .955f + .045f * eased;
+            c.scale(scale, scale, getWidth() / 2f, getHeight() / 2f);
+        }
+        if(edgeBackDragging)c.translate(edgeBackOffset,0);
+        drawCurrentScreen(c);
+        c.restore();
+        if (t < 1f) postInvalidateOnAnimation();
+        drawResultOverlay(c);
+        drawToastHint(c);
+    }
+
+    private void drawCurrentScreen(Canvas c) {
         switch (mode) {
             case GAME_2048:
                 c.drawColor(Color.rgb(250, 248, 239));
@@ -152,6 +222,9 @@ public final class GameHubView extends View {
                     case TAP_RUSH: drawTapRush(c); break;
                     case SNAKE: drawSnake(c); break;
                     case SIMON: drawSimon(c); break;
+                    case TICTACTOE: drawTicTacToe(c); break;
+                    case COLOR_HUNT: drawColorHunt(c); break;
+                    case BOUNCE: drawBounce(c); break;
                     default: drawMenu(c);
                 }
         }
@@ -181,9 +254,16 @@ public final class GameHubView extends View {
             float y = viewportTop + i * (cardH + gap) - menuScroll;
             if (y + cardH < viewportTop - cardH || y > viewportBottom + cardH) continue;
             RectF r = menuCardRect(y, cardH);
-            float press = i == pressedMenuIndex && !menuDragging ? 0.98f : 1f;
+            float press = i == pressedMenuIndex && !menuDragging ? 0.96f : 1f;
+            float edgeScale = 1f;
+            if (roundScreen) {
+                float center = (viewportTop + viewportBottom) * .5f;
+                float half = Math.max(1f, (viewportBottom - viewportTop) * .5f);
+                float dist = Math.min(1f, Math.abs(r.centerY() - center) / half);
+                edgeScale = .88f + .12f * (1f - dist * dist);
+            }
             c.save();
-            c.scale(press, press, r.centerX(), r.centerY());
+            c.scale(press * edgeScale, press * edgeScale, r.centerX(), r.centerY());
             p.setColor(i == pressedMenuIndex ? Color.rgb(41, 49, 61) : Color.rgb(27, 33, 42));
             c.drawRoundRect(r, cardH * .28f, cardH * .28f, p);
             p.setStyle(Paint.Style.STROKE);
@@ -195,7 +275,7 @@ public final class GameHubView extends View {
             float iconR = cardH * .24f;
             float iconX = r.left + cardH * .45f;
             float iconY = r.centerY();
-            drawMenuIcon(c, i, iconX, iconY, iconR);
+            drawMenuIcon(c, MENU_MODES[i], iconX, iconY, iconR);
 
             float tx = r.left + cardH * .83f;
             textFit(c, MENU_TITLES[i], tx, y + cardH * .42f, cardH * .30f, Color.WHITE,
@@ -223,28 +303,44 @@ public final class GameHubView extends View {
         return new RectF((getWidth() - cardW) / 2f, y, (getWidth() + cardW) / 2f, y + cardH);
     }
 
-    private void drawMenuIcon(Canvas c, int index, float x, float y, float r) {
-        switch (index) {
-            case 0:
+    private void drawMenuIcon(Canvas c, int menuMode, float x, float y, float r) {
+        switch (menuMode) {
+            case XIANGQI:
                 p.setColor(Color.rgb(181, 45, 45)); c.drawCircle(x, y, r, p);
                 text(c, "象", x, y + r * .34f, r * 1.05f, Color.WHITE, true); break;
-            case 1:
+            case GOMOKU:
                 p.setColor(Color.rgb(214, 174, 110)); c.drawCircle(x, y, r, p);
                 p.setColor(Color.rgb(26, 28, 31)); c.drawCircle(x - r * .28f, y - r * .12f, r * .34f, p);
                 p.setColor(Color.WHITE); c.drawCircle(x + r * .28f, y + r * .13f, r * .34f, p); break;
-            case 2:
+            case GAME_2048:
                 p.setColor(Color.rgb(237, 194, 46)); c.drawRoundRect(new RectF(x-r,y-r,x+r,y+r), r*.28f,r*.28f,p);
                 text(c, "2048", x, y + r * .20f, r * .48f, Color.WHITE, true); break;
-            case 3:
+            case TAP_RUSH:
                 p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(r * .23f); p.setColor(Color.rgb(255, 87, 92)); c.drawCircle(x,y,r*.72f,p);
                 p.setStrokeWidth(r * .13f); p.setColor(Color.WHITE); c.drawCircle(x,y,r*.33f,p); p.setStyle(Paint.Style.FILL); break;
-            case 4:
+            case SNAKE:
                 p.setColor(Color.rgb(55, 196, 117));
                 for (int i=0;i<4;i++) c.drawCircle(x-r*.55f+i*r*.37f,y+(i%2==0?-r*.18f:r*.18f),r*.25f,p);
                 p.setColor(Color.rgb(255, 94, 94)); c.drawCircle(x+r*.62f,y-r*.42f,r*.17f,p); break;
-            case 5:
+            case SIMON:
                 int[] cols={Color.rgb(255,91,91),Color.rgb(76,196,107),Color.rgb(77,142,255),Color.rgb(255,199,65)};
                 for(int q=0;q<4;q++){p.setColor(cols[q]);float ox=(q%2==0?-1:1)*r*.42f,oy=(q<2?-1:1)*r*.42f;c.drawCircle(x+ox,y+oy,r*.32f,p);} break;
+            case TICTACTOE:
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(r*.18f); p.setColor(Color.rgb(94,174,255));
+                c.drawLine(x-r*.55f,y-r*.55f,x-r*.05f,y-r*.05f,p);c.drawLine(x-r*.05f,y-r*.55f,x-r*.55f,y-r*.05f,p);
+                p.setColor(Color.rgb(255,110,118));c.drawCircle(x+r*.35f,y+r*.30f,r*.32f,p);p.setStyle(Paint.Style.FILL); break;
+            case COLOR_HUNT:
+                p.setColor(Color.rgb(87,184,255));c.drawRoundRect(new RectF(x-r,y-r,x-r*.08f,y-r*.08f),r*.2f,r*.2f,p);
+                p.setColor(Color.rgb(87,224,167));c.drawRoundRect(new RectF(x+r*.08f,y-r,x+r,y-r*.08f),r*.2f,r*.2f,p);
+                p.setColor(Color.rgb(255,190,73));c.drawRoundRect(new RectF(x-r,y+r*.08f,x-r*.08f,y+r),r*.2f,r*.2f,p);
+                p.setColor(Color.rgb(255,92,122));c.drawRoundRect(new RectF(x+r*.08f,y+r*.08f,x+r,y+r),r*.2f,r*.2f,p); break;
+            case BOUNCE:
+                p.setColor(Color.rgb(87,211,146));c.drawCircle(x,y-r*.25f,r*.27f,p);
+                p.setColor(Color.WHITE);c.drawRoundRect(new RectF(x-r*.72f,y+r*.34f,x+r*.72f,y+r*.57f),r*.12f,r*.12f,p); break;
+            case FEEDBACK:
+                p.setColor(Color.rgb(74,148,255));c.drawRoundRect(new RectF(x-r,y-r*.72f,x+r,y+r*.52f),r*.35f,r*.35f,p);
+                p.setColor(Color.WHITE);for(int i=-1;i<=1;i++)c.drawCircle(x+i*r*.34f,y-r*.08f,r*.09f,p);
+                p.setColor(Color.rgb(74,148,255));c.drawCircle(x-r*.45f,y+r*.58f,r*.18f,p); break;
             default:
                 p.setColor(Color.rgb(101, 119, 255)); c.drawCircle(x,y,r,p); text(c,"i",x,y+r*.36f,r*1.15f,Color.WHITE,true);
         }
@@ -462,7 +558,10 @@ public final class GameHubView extends View {
     private void drawTapRush(Canvas c) {
         long elapsed=SystemClock.elapsedRealtime()-tapStart;
         long remain=Math.max(0,30000-elapsed);
-        if(remain==0) tapOver=true;
+        if(remain==0 && !tapOver) {
+            tapOver=true;
+            if(!tapResultShown){tapResultShown=true;if(tapScore>=20)showResult(1,"手速达标！",tapScore+" 分 · 超过 20 分");else showResult(-1,"时间到",tapScore+" 分 · 20 分即可通关");}
+        }
         drawGameHeader(c,"反应点击",tapOver?("结束 · "+tapScore+" 分"):("剩余 "+((remain+999)/1000)+" 秒 · "+tapScore+" 分"),false);
         if(!tapOver){
             float pulse=1f+.10f*(float)Math.sin(SystemClock.elapsedRealtime()/120.0);
@@ -481,7 +580,7 @@ public final class GameHubView extends View {
 
     private void drawSnake(Canvas c){
         updateSnake();
-        drawGameHeader(c,"贪吃蛇",snakeOver?("撞到了 · "+snakeScore+" 分"):(snakeRunning?("分数 "+snakeScore):"滑动任意方向开始"),false);
+        drawGameHeader(c,"贪吃蛇",snakeOver?(snakeWon?("通关 · "+snakeScore+" 分"):("撞到了 · "+snakeScore+" 分")):(snakeRunning?("分数 "+snakeScore+" / 10"):"滑动任意方向开始"),false);
         float s=minSide(),size=s*(roundScreen?.47f:.54f),left=(getWidth()-size)/2,top=s*.225f,cell=size/SNAKE_N;
         p.setColor(Color.rgb(20,29,35));c.drawRoundRect(new RectF(left,top,left+size,top+size),cell*.45f,cell*.45f,p);
         p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1f,s*.0018f));p.setColor(Color.rgb(32,45,52));
@@ -513,10 +612,10 @@ public final class GameHubView extends View {
         if(snakeDir==0)ny--;else if(snakeDir==1)nx++;else if(snakeDir==2)ny++;else nx--;
         boolean growing=nx==snakeFoodX&&ny==snakeFoodY;
         if(nx<0||nx>=SNAKE_N||ny<0||ny>=SNAKE_N||snakeContains(nx,ny,!growing)){
-            snakeOver=true;snakeRunning=false;performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);return;
+            snakeOver=true;snakeRunning=false;snakeWon=false;showResult(-1,"撞到了",snakeScore+" 分 · 10 分即可通关");return;
         }
         snake.addFirst(new Cell(nx,ny));
-        if(growing){snakeScore++;placeSnakeFood();performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);}else snake.removeLast();
+        if(growing){snakeScore++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(snakeScore>=10){snakeOver=true;snakeRunning=false;snakeWon=true;showResult(1,"贪吃蛇通关！","成功吃到 10 个食物");}else placeSnakeFood();}else snake.removeLast();
     }
 
     private boolean snakeContains(int x,int y,boolean ignoreTail){
@@ -545,7 +644,7 @@ public final class GameHubView extends View {
 
     private void drawSimon(Canvas c){
         updateSimon();
-        String sub=simonOver?("记到第 "+simonSeq.size()+" 轮"):(simonShowing?"看清闪烁顺序":"轮到你 · 第 "+simonSeq.size()+" 轮");
+        String sub=simonOver?(simonWon?"挑战成功 · 8 轮":("记到第 "+simonSeq.size()+" 轮")):(simonShowing?"看清闪烁顺序":"轮到你 · 第 "+simonSeq.size()+" 轮");
         drawGameHeader(c,"记忆闪烁",sub,false);
         float s=minSide(),size=s*(roundScreen?.48f:.56f),gap=s*.025f,cell=(size-gap)/2,left=(getWidth()-size)/2,top=s*.23f;
         int[] base={Color.rgb(118,45,49),Color.rgb(35,98,62),Color.rgb(40,71,127),Color.rgb(118,93,34)};
@@ -557,7 +656,7 @@ public final class GameHubView extends View {
             float shrink=q==active?-.012f*s:0;
             c.drawRoundRect(new RectF(l-shrink,t-shrink,l+cell+shrink,t+cell+shrink),cell*.18f,cell*.18f,p);
         }
-        if(simonOver)text(c,"顺序错了，点“重开”再试",getWidth()/2,top+size+s*.07f,s*.031f,Color.rgb(210,216,226),true);
+        if(simonOver)text(c,simonWon?"完成！点“重开”可再次挑战":"顺序错了，点“重开”再试",getWidth()/2,top+size+s*.07f,s*.029f,Color.rgb(210,216,226),true);
         if(!simonOver)postInvalidateDelayed(32);
         drawBottomBar(c,new String[]{"菜单","重开"},false);
     }
@@ -584,11 +683,235 @@ public final class GameHubView extends View {
         if(x<left||x>left+size||y<top||y>top+size)return;
         int col=x<left+cell?0:(x>left+cell+gap?1:-1);int row=y<top+cell?0:(y>top+cell+gap?1:-1);if(col<0||row<0)return;
         int q=row*2+col;simonTapFlash=q;simonTapFlashUntil=SystemClock.elapsedRealtime()+170;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
-        if(q!=simonSeq.get(simonInputIndex)){simonOver=true;performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);invalidate();return;}
+        if(q!=simonSeq.get(simonInputIndex)){simonOver=true;simonWon=false;showResult(-1,"顺序错了","坚持到第 "+simonSeq.size()+" 轮");invalidate();return;}
         simonInputIndex++;
         if(simonInputIndex>=simonSeq.size()){
-            simonSeq.add(random.nextInt(4));simonShowing=true;simonRoundStart=SystemClock.elapsedRealtime()+650;simonInputIndex=0;
+            if(simonSeq.size()>=8){simonOver=true;simonWon=true;showResult(1,"记忆通关！","连续完成 8 轮");}
+            else{simonSeq.add(random.nextInt(4));simonShowing=true;simonRoundStart=SystemClock.elapsedRealtime()+650;simonInputIndex=0;}
         }
+        invalidate();
+    }
+
+    // ---------- Tic-tac-toe ----------
+
+    private void drawTicTacToe(Canvas c) {
+        updateTicTacToeAi();
+        float s = minSide(), w = getWidth();
+        String sub = tttOver ? (tttResult == 1 ? "你赢了" : tttResult == -1 ? "手表获胜" : "平局")
+                : (tttAiDue > 0 ? "手表思考中…" : "你是 X · 点格子落子");
+        drawGameHeader(c, "井字棋", sub, false);
+        float size = s * (roundScreen ? .49f : .57f);
+        float left = (w - size) / 2f, top = s * .225f, cell = size / 3f;
+        RectF bg = new RectF(left, top, left + size, top + size);
+        p.setColor(Color.rgb(22, 29, 38)); c.drawRoundRect(bg, s * .035f, s * .035f, p);
+        p.setColor(Color.rgb(77, 90, 108)); p.setStrokeWidth(Math.max(2f, s * .007f));
+        for (int i = 1; i < 3; i++) {
+            c.drawLine(left + i * cell, top + s * .025f, left + i * cell, top + size - s * .025f, p);
+            c.drawLine(left + s * .025f, top + i * cell, left + size - s * .025f, top + i * cell, p);
+        }
+        long now = SystemClock.elapsedRealtime();
+        if(tttAiDue>now)postInvalidateDelayed(Math.max(16,tttAiDue-now));
+        for (int i = 0; i < 9; i++) {
+            if (ttt[i] == 0) continue;
+            int col = i % 3, row = i / 3;
+            float cx = left + (col + .5f) * cell, cy = top + (row + .5f) * cell;
+            float scale = 1f;
+            if (i == tttLast) {
+                float t = clamp((now - tttMarkAnimStart) / 180f, 0, 1);
+                scale = overshoot(t);
+                if (t < 1) postInvalidateOnAnimation();
+            }
+            float r = cell * .25f * scale;
+            p.setStyle(Paint.Style.STROKE); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeWidth(cell * .095f);
+            if (ttt[i] == 1) {
+                p.setColor(Color.rgb(86, 169, 255));
+                c.drawLine(cx - r, cy - r, cx + r, cy + r, p);
+                c.drawLine(cx + r, cy - r, cx - r, cy + r, p);
+            } else {
+                p.setColor(Color.rgb(255, 103, 117)); c.drawCircle(cx, cy, r, p);
+            }
+            p.setStrokeCap(Paint.Cap.BUTT); p.setStyle(Paint.Style.FILL);
+        }
+        drawBottomBar(c, new String[]{"菜单", "重开"}, false);
+    }
+
+    private void handleTicTacToeTap(float x, float y) {
+        if (tttOver || tttAiDue > 0) return;
+        float s = minSide(), size = s * (roundScreen ? .49f : .57f), left = (getWidth() - size) / 2f, top = s * .225f;
+        if (x < left || x >= left + size || y < top || y >= top + size) return;
+        int col = Math.min(2, (int)((x - left) / (size / 3f)));
+        int row = Math.min(2, (int)((y - top) / (size / 3f)));
+        int idx = row * 3 + col;
+        if (ttt[idx] != 0) return;
+        placeTttMark(idx, 1);
+        int winner = tttWinner();
+        if (winner == 1) finishTtt(1);
+        else if (tttFull()) finishTtt(2);
+        else tttAiDue = SystemClock.elapsedRealtime() + 330;
+        invalidate();
+    }
+
+    private void updateTicTacToeAi() {
+        if (tttOver || tttAiDue <= 0 || SystemClock.elapsedRealtime() < tttAiDue) return;
+        tttAiDue = 0;
+        int idx = chooseTttAiMove();
+        if (idx >= 0) placeTttMark(idx, 2);
+        int winner = tttWinner();
+        if (winner == 2) finishTtt(-1);
+        else if (tttFull()) finishTtt(2);
+        postInvalidateOnAnimation();
+    }
+
+    private void placeTttMark(int idx, int who) {
+        ttt[idx] = who; tttLast = idx; tttMarkAnimStart = SystemClock.elapsedRealtime();
+        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+    }
+
+    private int chooseTttAiMove() {
+        for (int who : new int[]{2, 1}) for (int i = 0; i < 9; i++) if (ttt[i] == 0) {
+            ttt[i] = who; boolean wins = tttWinner() == who; ttt[i] = 0; if (wins) return i;
+        }
+        if (ttt[4] == 0) return 4;
+        int[] corners = {0, 2, 6, 8};
+        List<Integer> free = new ArrayList<>();
+        for (int i : corners) if (ttt[i] == 0) free.add(i);
+        if (!free.isEmpty()) return free.get(random.nextInt(free.size()));
+        free.clear(); for (int i = 0; i < 9; i++) if (ttt[i] == 0) free.add(i);
+        return free.isEmpty() ? -1 : free.get(random.nextInt(free.size()));
+    }
+
+    private int tttWinner() {
+        int[][] lines = {{0,1,2},{3,4,5},{6,7,8},{0,3,6},{1,4,7},{2,5,8},{0,4,8},{2,4,6}};
+        for (int[] l : lines) if (ttt[l[0]] != 0 && ttt[l[0]] == ttt[l[1]] && ttt[l[1]] == ttt[l[2]]) return ttt[l[0]];
+        return 0;
+    }
+
+    private boolean tttFull() { for (int v : ttt) if (v == 0) return false; return true; }
+    private void finishTtt(int result) {
+        tttOver = true; tttResult = result; tttAiDue = 0;
+        if (result == 1) showResult(1, "你赢了！", "井字棋挑战成功");
+        else if (result == -1) showResult(-1, "这局输了", "点“重开”再挑战一次");
+        else showResult(2, "平局", "旗鼓相当，再来一局");
+    }
+
+    // ---------- Color Hunt ----------
+
+    private void drawColorHunt(Canvas c) {
+        long now = SystemClock.elapsedRealtime();
+        long remain = Math.max(0, colorDeadline - now);
+        if (!colorOver && remain == 0) {
+            colorOver = true; colorWon = false;
+            showResult(-1, "时间到", "找到 " + colorScore + " / 12 个不同色块");
+        }
+        drawGameHeader(c, "色块猎手", colorOver ? (colorWon ? "挑战成功" : "挑战结束") : ("剩余 " + ((remain + 999) / 1000) + " 秒 · " + colorScore + "/12"), false);
+        float s = minSide(), size = s * (roundScreen ? .50f : .58f), left = (getWidth() - size) / 2f, top = s * .22f;
+        float gap = s * .012f, cell = (size - gap * (colorGridN - 1)) / colorGridN;
+        float hue = (colorScore * 43f + 195f) % 360f;
+        float[] hsv = {hue, .58f, .90f};
+        int base = Color.HSVToColor(hsv);
+        float diff = Math.max(.065f, .22f - colorScore * .011f);
+        float[] oddHsv = {hue, .58f, Math.max(.45f, .90f - diff)};
+        int odd = Color.HSVToColor(oddHsv);
+        for (int i = 0; i < colorGridN * colorGridN; i++) {
+            int col = i % colorGridN, row = i / colorGridN;
+            float l = left + col * (cell + gap), t = top + row * (cell + gap);
+            float scale = 1f;
+            if (i == colorFlash && now < colorFlashUntil) scale = colorFlashGood ? 1.10f : .90f;
+            float cx = l + cell / 2, cy = t + cell / 2, side = cell * scale;
+            p.setColor(i == colorTarget ? odd : base);
+            c.drawRoundRect(new RectF(cx - side/2, cy - side/2, cx + side/2, cy + side/2), cell * .18f, cell * .18f, p);
+            if (i == colorFlash && now < colorFlashUntil && !colorFlashGood) {
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(s * .012f); p.setColor(Color.rgb(255, 90, 98));
+                c.drawRoundRect(new RectF(l, t, l + cell, t + cell), cell * .18f, cell * .18f, p); p.setStyle(Paint.Style.FILL);
+            }
+        }
+        if (!colorOver) postInvalidateDelayed(32);
+        drawBottomBar(c, new String[]{"菜单", "重开"}, false);
+    }
+
+    private void handleColorHuntTap(float x, float y) {
+        if (colorOver) return;
+        float s = minSide(), size = s * (roundScreen ? .50f : .58f), left = (getWidth() - size) / 2f, top = s * .22f;
+        if (x < left || x >= left + size || y < top || y >= top + size) return;
+        float gap = s * .012f, cell = (size - gap * (colorGridN - 1)) / colorGridN;
+        int col = (int)((x - left) / (cell + gap)), row = (int)((y - top) / (cell + gap));
+        if (col < 0 || col >= colorGridN || row < 0 || row >= colorGridN) return;
+        float inX = (x - left) - col * (cell + gap), inY = (y - top) - row * (cell + gap);
+        if (inX > cell || inY > cell) return;
+        int idx = row * colorGridN + col;
+        colorFlash = idx; colorFlashUntil = SystemClock.elapsedRealtime() + 180;
+        if (idx == colorTarget) {
+            colorFlashGood = true; colorScore++; performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            if (colorScore >= 12) {
+                colorOver = true; colorWon = true; showResult(1, "眼力通关！", "连续找出 12 个不同色块");
+            } else {
+                colorGridN = Math.min(5, 2 + colorScore / 3);
+                colorTarget = random.nextInt(colorGridN * colorGridN);
+                colorDeadline += 1100;
+            }
+        } else {
+            colorFlashGood = false; colorDeadline = Math.max(SystemClock.elapsedRealtime() + 500, colorDeadline - 2200);
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        }
+        invalidate();
+    }
+
+    // ---------- Bounce challenge ----------
+
+    private RectF bounceBoardRect() {
+        float s = minSide(), sizeW = getWidth() * (roundScreen ? .68f : .84f), top = s * .19f, bottom = bottomBarTop() - s * .04f;
+        return new RectF((getWidth() - sizeW) / 2f, top, (getWidth() + sizeW) / 2f, bottom);
+    }
+
+    private void drawBounce(Canvas c) {
+        float s = minSide(); RectF board = bounceBoardRect();
+        if (bounceLastTick == 0) initBounceGeometry(board);
+        updateBounce(board);
+        String sub = bounceOver ? (bounceWon ? "挑战成功 · 12 次" : "漏接了 · " + bounceHits + " 次") : (bounceRunning ? "连续反弹 " + bounceHits + "/12" : "触摸挡板开始");
+        drawGameHeader(c, "弹球挑战", sub, false);
+        p.setColor(Color.rgb(18, 27, 36)); c.drawRoundRect(board, s * .035f, s * .035f, p);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(s * .005f); p.setColor(Color.rgb(42, 58, 72)); c.drawRoundRect(board, s * .035f, s * .035f, p); p.setStyle(Paint.Style.FILL);
+        float paddleW = board.width() * .34f, paddleH = s * .035f, py = board.bottom - s * .055f;
+        RectF paddle = new RectF(bouncePaddleX - paddleW/2, py - paddleH/2, bouncePaddleX + paddleW/2, py + paddleH/2);
+        p.setColor(Color.rgb(80, 217, 150)); c.drawRoundRect(paddle, paddleH/2, paddleH/2, p);
+        float pulse = 1f + .06f * (float)Math.sin(SystemClock.elapsedRealtime() / 110.0);
+        p.setColor(Color.rgb(255, 211, 72)); c.drawCircle(bounceBallX, bounceBallY, s * .025f * pulse, p);
+        p.setColor(Color.argb(90, 255, 211, 72)); c.drawCircle(bounceBallX, bounceBallY, s * .043f * pulse, p);
+        if (!bounceOver) postInvalidateOnAnimation();
+        drawBottomBar(c, new String[]{"菜单", "重开"}, false);
+    }
+
+    private void initBounceGeometry(RectF board) {
+        float s = minSide();
+        bouncePaddleX = board.centerX(); bounceBallX = board.centerX(); bounceBallY = board.top + board.height() * .34f;
+        bounceVx = s * .36f; bounceVy = s * .42f; bounceLastTick = SystemClock.elapsedRealtime();
+    }
+
+    private void updateBounce(RectF board) {
+        if (!bounceRunning || bounceOver) { bounceLastTick = SystemClock.elapsedRealtime(); return; }
+        long now = SystemClock.elapsedRealtime(); float dt = Math.min(.035f, Math.max(.001f, (now - bounceLastTick) / 1000f)); bounceLastTick = now;
+        float s = minSide(), r = s * .025f, paddleW = board.width() * .34f, paddleH = s * .035f, py = board.bottom - s * .055f;
+        bounceBallX += bounceVx * dt; bounceBallY += bounceVy * dt;
+        if (bounceBallX - r < board.left) { bounceBallX = board.left + r; bounceVx = Math.abs(bounceVx); }
+        if (bounceBallX + r > board.right) { bounceBallX = board.right - r; bounceVx = -Math.abs(bounceVx); }
+        if (bounceBallY - r < board.top) { bounceBallY = board.top + r; bounceVy = Math.abs(bounceVy); }
+        if (bounceVy > 0 && bounceBallY + r >= py - paddleH/2 && bounceBallY - r <= py + paddleH/2 &&
+                bounceBallX >= bouncePaddleX - paddleW/2 - r && bounceBallX <= bouncePaddleX + paddleW/2 + r) {
+            bounceBallY = py - paddleH/2 - r; bounceVy = -Math.abs(bounceVy) * 1.025f;
+            float offset = (bounceBallX - bouncePaddleX) / (paddleW/2); bounceVx += offset * s * .12f;
+            bounceHits++; performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            if (bounceHits >= 12) { bounceOver = true; bounceWon = true; bounceRunning = false; showResult(1, "弹球通关！", "连续接住 12 次"); }
+        }
+        if (!bounceOver && bounceBallY - r > board.bottom) {
+            bounceOver = true; bounceWon = false; bounceRunning = false; showResult(-1, "漏接了", "本局连续反弹 " + bounceHits + " 次");
+        }
+    }
+
+    private void handleBounceTouch(float x) {
+        if (bounceOver) return;
+        RectF board = bounceBoardRect(); float paddleW = board.width() * .34f;
+        bouncePaddleX = clamp(x, board.left + paddleW/2, board.right - paddleW/2);
+        if (!bounceRunning) { bounceRunning = true; bounceLastTick = SystemClock.elapsedRealtime(); }
         invalidate();
     }
 
@@ -596,18 +919,24 @@ public final class GameHubView extends View {
 
     private void drawAbout(Canvas c){
         float s=minSide(),w=getWidth();
-        drawGameHeader(c,"关于","腕上小游戏 · v3.0",false);
-        float cardW=w*(roundScreen?.68f:.86f),left=(w-cardW)/2,top=s*.20f,bottom=bottomBarTop()-s*.035f;
+        drawGameHeader(c,"关于","腕上小游戏 · v4.0",false);
+        float cardW=w*(roundScreen?.68f:.86f),left=(w-cardW)/2,top=s*.185f,bottom=bottomBarTop()-s*.030f;
         p.setColor(Color.rgb(25,31,40));c.drawRoundRect(new RectF(left,top,left+cardW,bottom),s*.045f,s*.045f,p);
-        float y=top+s*.09f;
-        text(c,"作者：黑白君",w/2,y,s*.043f,Color.WHITE,true);y+=s*.075f;
-        drawWrappedCentered(c,"一个为 Wear OS 小屏重新设计的离线小游戏合集。",w/2,y,cardW*.82f,s*.030f,s*.045f,Color.rgb(190,199,212));
-        y+=s*.12f;
-        drawWrappedCentered(c,"内含象棋、五子棋、2048、反应点击、贪吃蛇和记忆闪烁。",w/2,y,cardW*.84f,s*.027f,s*.041f,Color.rgb(155,168,185));
-        float donateTop=bottom-s*.15f,donateH=s*.105f;
-        RectF donate=new RectF(w/2-cardW*.34f,donateTop,w/2+cardW*.34f,donateTop+donateH);
-        p.setColor(Color.rgb(7,193,96));c.drawRoundRect(donate,donateH/2,donateH/2,p);
-        text(c,"支持作者",donate.centerX(),donate.centerY()+s*.012f,s*.034f,Color.WHITE,true);
+        float y=top+s*.070f;
+        text(c,"作者：黑白君",w/2,y,s*.040f,Color.WHITE,true);y+=s*.060f;
+        drawWrappedCentered(c,"专为 Wear OS 小屏与圆屏优化的离线小游戏合集。",w/2,y,cardW*.84f,s*.026f,s*.039f,Color.rgb(190,199,212));
+        y+=s*.090f;
+        textFit(c,"9 款游戏 · 动画反馈 · 圆屏安全区",w/2,y,s*.025f,Color.rgb(150,165,183),false,Paint.Align.CENTER,cardW*.84f);
+
+        float btnH=s*.082f,gap=s*.018f;
+        float feedbackTop=bottom-s*.045f-btnH;
+        float donateTop=feedbackTop-gap-btnH;
+        RectF donate=new RectF(w/2-cardW*.35f,donateTop,w/2+cardW*.35f,donateTop+btnH);
+        RectF feedback=new RectF(w/2-cardW*.35f,feedbackTop,w/2+cardW*.35f,feedbackTop+btnH);
+        p.setColor(Color.rgb(7,193,96));c.drawRoundRect(donate,btnH/2,btnH/2,p);
+        text(c,"支持作者",donate.centerX(),donate.centerY()+s*.010f,s*.030f,Color.WHITE,true);
+        p.setColor(Color.rgb(65,132,245));c.drawRoundRect(feedback,btnH/2,btnH/2,p);
+        text(c,"意见反馈 · 手机打开",feedback.centerX(),feedback.centerY()+s*.010f,s*.027f,Color.WHITE,true);
         drawBottomBar(c,new String[]{"返回"},false);
     }
 
@@ -626,6 +955,77 @@ public final class GameHubView extends View {
         if(donateQr!=null){p.setFilterBitmap(false);c.drawBitmap(donateQr,null,dest,p);}
         else {p.setColor(Color.rgb(240,240,240));c.drawRoundRect(dest,s*.03f,s*.03f,p);text(c,"收款码加载失败",w/2,dest.centerY(),s*.035f,Color.DKGRAY,true);}
         drawBottomBar(c,new String[]{"返回"},false);
+    }
+
+    // ---------- Result / transient feedback ----------
+
+    private void showResult(int kind, String title, String sub) {
+        resultOverlayKind = kind; resultOverlayTitle = title; resultOverlaySub = sub; resultOverlayAutoHide = false;
+        resultOverlayStart = SystemClock.elapsedRealtime();
+        performHapticFeedback(kind == 1 ? HapticFeedbackConstants.CONFIRM : (kind == -1 ? HapticFeedbackConstants.REJECT : HapticFeedbackConstants.CLOCK_TICK));
+        invalidate();
+    }
+
+    private void showTransientResult(int kind, String title, String sub) {
+        showResult(kind, title, sub); resultOverlayAutoHide = true;
+    }
+
+    private void clearResultOverlay() {
+        resultOverlayKind = 0; resultOverlayStart = 0; resultOverlayTitle = ""; resultOverlaySub = ""; resultOverlayAutoHide = false;
+    }
+
+    private void drawResultOverlay(Canvas c) {
+        if (resultOverlayKind == 0 || mode == MENU || mode == ABOUT || mode == DONATE) return;
+        long now = SystemClock.elapsedRealtime(); float s = minSide();
+        if(resultOverlayAutoHide && now-resultOverlayStart>1750){clearResultOverlay();return;}
+        float t = clamp((now - resultOverlayStart) / 360f, 0, 1), scale = .72f + .28f * overshoot(t);
+        p.setColor(Color.argb((int)(105 * t), 0, 0, 0)); c.drawRect(0, 0, getWidth(), getHeight(), p);
+        float cardW = getWidth() * (roundScreen ? .63f : .77f), cardH = s * .245f;
+        RectF r = new RectF(getWidth()/2-cardW/2, getHeight()/2-cardH/2, getWidth()/2+cardW/2, getHeight()/2+cardH/2);
+        c.save(); c.scale(scale, scale, r.centerX(), r.centerY());
+        int accent = resultOverlayKind == 1 ? Color.rgb(66, 211, 133) : resultOverlayKind == -1 ? Color.rgb(255, 83, 94) : Color.rgb(255, 191, 62);
+        p.setColor(Color.rgb(26, 33, 42)); c.drawRoundRect(r, s*.050f, s*.050f, p);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(s*.009f); p.setColor(accent); c.drawRoundRect(r, s*.050f, s*.050f, p); p.setStyle(Paint.Style.FILL);
+        float iconY = r.top + cardH*.30f;
+        p.setColor(accent); c.drawCircle(r.centerX(), iconY, s*.050f, p);
+        text(c, resultOverlayKind == 1 ? "✓" : resultOverlayKind == -1 ? "×" : "★", r.centerX(), iconY+s*.018f, s*.057f, Color.WHITE, true);
+        textFit(c, resultOverlayTitle, r.centerX(), r.top+cardH*.62f, s*.041f, Color.WHITE, true, Paint.Align.CENTER, cardW*.82f);
+        textFit(c, resultOverlaySub, r.centerX(), r.top+cardH*.80f, s*.025f, Color.rgb(190,200,213), false, Paint.Align.CENTER, cardW*.84f);
+        c.restore();
+        float age = now - resultOverlayStart;
+        if (resultOverlayKind == 1 && age < 1350) {
+            for (int i=0;i<14;i++) {
+                double a=i*2.399963+age*.0025; float rr=s*(.12f+(i%5)*.026f)*Math.min(1f,age/450f);
+                float x=getWidth()/2f+(float)Math.cos(a)*rr, y=getHeight()/2f+(float)Math.sin(a)*rr;
+                int[] cols={Color.rgb(255,91,91),Color.rgb(74,204,122),Color.rgb(75,145,255),Color.rgb(255,202,64)};
+                p.setColor(cols[i%cols.length]); c.drawCircle(x,y,s*.008f,p);
+            }
+            postInvalidateOnAnimation();
+        } else if (resultOverlayKind == -1 && age < 1000) {
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(s*.008f); p.setColor(Color.argb(130,255,83,94));
+            c.drawCircle(getWidth()/2f,getHeight()/2f,s*(.15f+.035f*(float)Math.sin(age/90.0)),p); p.setStyle(Paint.Style.FILL);
+            postInvalidateOnAnimation();
+        } else if (t < 1f) postInvalidateOnAnimation();
+    }
+
+    private void showToastHint(String text) {
+        toastHint = text; toastHintUntil = SystemClock.elapsedRealtime() + 2200; invalidate();
+    }
+
+    private void drawToastHint(Canvas c) {
+        long now = SystemClock.elapsedRealtime(); if (toastHint.length() == 0 || now >= toastHintUntil) return;
+        float s=minSide(), w=Math.min(getWidth()*(roundScreen?.68f:.84f),dp(300)),h=s*.085f;
+        float bottom=mode==MENU?getHeight()-s*(roundScreen?.16f:.06f):bottomBarTop()-s*.025f;
+        RectF r=new RectF(getWidth()/2-w/2,bottom-h,getWidth()/2+w/2,bottom);
+        p.setColor(Color.argb(225,38,46,58));c.drawRoundRect(r,h/2,h/2,p);
+        textFit(c,toastHint,r.centerX(),r.centerY()+h*.10f,h*.27f,Color.WHITE,true,Paint.Align.CENTER,w*.86f);
+        postInvalidateDelayed(80);
+    }
+
+    private void openFeedbackOnPhone() {
+        boolean sent = phoneLinkOpener.openOnPhone(FEEDBACK_URL);
+        showToastHint(sent ? "已请求在配对手机打开酷安" : "未能连接手机，请确认蓝牙连接");
+        performHapticFeedback(sent ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.REJECT);
     }
 
     // ---------- Shared drawing helpers ----------
@@ -692,18 +1092,23 @@ public final class GameHubView extends View {
     @Override public boolean onTouchEvent(MotionEvent e) {
         int action=e.getActionMasked();
         if(action==MotionEvent.ACTION_DOWN){
-            downX=lastX=e.getX();downY=lastY=e.getY();dragging=false;pinching=false;menuDragging=false;
-            gestureStartedOnControl=isControlArea(downX,downY);menuScrollAtDown=menuScroll;
+            downX=lastX=e.getX();downY=lastY=e.getY();dragging=false;pinching=false;menuDragging=false;edgeBackOffset=0;
+            edgeBackDragging=mode!=MENU&&downX<=minSide()*.10f;
+            if(edgeBackDragging)clearResultOverlay();
+            gestureStartedOnControl=edgeBackDragging||isControlArea(downX,downY);menuScrollAtDown=menuScroll;
             if(mode==MENU)pressedMenuIndex=findMenuIndex(downX,downY);
+            if(mode==BOUNCE&&!gestureStartedOnControl)handleBounceTouch(downX);
             invalidate();return true;
         }
         if(action==MotionEvent.ACTION_POINTER_DOWN&&e.getPointerCount()>=2&&(mode==XIANGQI||mode==GOMOKU)){
             pinching=true;dragging=false;pinchStart=distance(e);zoomStart=zoom;return true;
         }
         if(action==MotionEvent.ACTION_MOVE){
+            if(edgeBackDragging){edgeBackOffset=clamp(e.getX()-downX,0,getWidth()*.48f);invalidate();return true;}
             if(mode==MENU){
                 float dy=e.getY()-downY;if(Math.abs(dy)>minSide()*.018f){menuDragging=true;pressedMenuIndex=-1;menuScroll=clamp(menuScrollAtDown-dy,0,menuMaxScroll);invalidate();}return true;
             }
+            if(mode==BOUNCE&&!gestureStartedOnControl){handleBounceTouch(e.getX());lastX=e.getX();lastY=e.getY();return true;}
             if(pinching&&e.getPointerCount()>=2){float dist=distance(e);if(pinchStart>1){zoom=clamp(zoomStart*dist/pinchStart,.72f,2.15f);invalidate();}}
             else if(!gestureStartedOnControl&&(mode==XIANGQI||mode==GOMOKU)){
                 float dx=e.getX()-lastX,dy=e.getY()-lastY;if(Math.hypot(e.getX()-downX,e.getY()-downY)>minSide()*.018f)dragging=true;
@@ -714,6 +1119,7 @@ public final class GameHubView extends View {
         if(action==MotionEvent.ACTION_POINTER_UP){pinching=false;return true;}
         if(action==MotionEvent.ACTION_UP){
             float ux=e.getX(),uy=e.getY();
+            if(edgeBackDragging){boolean commit=edgeBackOffset>=minSide()*.18f;edgeBackDragging=false;edgeBackOffset=0;if(commit)navigateTo(mode==DONATE?ABOUT:MENU,true);else{pageBackTransition=false;pageTransitionStart=SystemClock.elapsedRealtime();invalidate();}return true;}
             if(mode==MENU){int idx=(!menuDragging&&Math.hypot(ux-downX,uy-downY)<minSide()*.035f)?findMenuIndex(ux,uy):-1;pressedMenuIndex=-1;if(idx>=0)startMode(MENU_MODES[idx]);invalidate();return true;}
             if(!gestureStartedOnControl&&(mode==GAME_2048||mode==SNAKE)){
                 float dx=ux-downX,dy=uy-downY;
@@ -726,7 +1132,7 @@ public final class GameHubView extends View {
             if(!dragging&&!pinching)handleTap(ux,uy);
             pinching=false;dragging=false;return true;
         }
-        if(action==MotionEvent.ACTION_CANCEL){pinching=false;dragging=false;pressedMenuIndex=-1;invalidate();return true;}
+        if(action==MotionEvent.ACTION_CANCEL){pinching=false;dragging=false;pressedMenuIndex=-1;edgeBackDragging=false;edgeBackOffset=0;invalidate();return true;}
         return true;
     }
 
@@ -751,17 +1157,28 @@ public final class GameHubView extends View {
         }else if(mode==TAP_RUSH){
             if(!tapOver&&Math.hypot(x-targetX,y-targetY)<=minSide()*.09f){tapScore++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);placeTapTarget();invalidate();}
         }else if(mode==SIMON)handleSimonTap(x,y);
+        else if(mode==TICTACTOE)handleTicTacToeTap(x,y);
+        else if(mode==COLOR_HUNT)handleColorHuntTap(x,y);
+        else if(mode==BOUNCE)handleBounceTouch(x);
         else if(mode==ABOUT){
-            float s=minSide(),w=getWidth(),cardW=w*(roundScreen?.68f:.86f),top=s*.20f,bottom=bottomBarTop()-s*.035f,donateTop=bottom-s*.15f,donateH=s*.105f;
-            RectF donate=new RectF(w/2-cardW*.34f,donateTop,w/2+cardW*.34f,donateTop+donateH);if(donate.contains(x,y)){mode=DONATE;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
+            float s=minSide(),w=getWidth(),cardW=w*(roundScreen?.68f:.86f),top=s*.185f,bottom=bottomBarTop()-s*.030f;
+            float btnH=s*.082f,gap=s*.018f,feedbackTop=bottom-s*.045f-btnH,donateTop=feedbackTop-gap-btnH;
+            RectF donate=new RectF(w/2-cardW*.35f,donateTop,w/2+cardW*.35f,donateTop+btnH);
+            RectF feedback=new RectF(w/2-cardW*.35f,feedbackTop,w/2+cardW*.35f,feedbackTop+btnH);
+            if(donate.contains(x,y)){navigateTo(DONATE,false);performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
+            else if(feedback.contains(x,y))openFeedbackOnPhone();
         }
     }
 
     private boolean handleBottomBarTap(float x,float y){
         if(y<bottomBarTop()-minSide()*.02f)return false;
-        if(mode==XIANGQI){int idx=barIndex(x,y,xiangqiOver?2:3);if(idx==0)mode=MENU;else if(idx==1)resetXiangqi();else if(idx==2&&!xiangqiOver&&xiangqi.undo()){selectedX=selectedY=pendingX=pendingY=-1;message="已撤销一步";}invalidate();return idx>=0;}
-        if(mode==GOMOKU||mode==GAME_2048||mode==TAP_RUSH||mode==SNAKE||mode==SIMON){int idx=barIndex(x,y,2);if(idx<0)return false;if(idx==0)mode=MENU;else if(mode==GOMOKU)resetGomoku();else if(mode==GAME_2048)reset2048();else if(mode==TAP_RUSH)resetTapRush();else if(mode==SNAKE)resetSnake();else resetSimon();invalidate();return true;}
-        if(mode==ABOUT||mode==DONATE){int idx=barIndex(x,y,1);if(idx==0){mode=mode==DONATE?ABOUT:MENU;invalidate();return true;}}
+        if(mode==XIANGQI){int idx=barIndex(x,y,xiangqiOver?2:3);if(idx<0)return false;if(idx==0)navigateTo(MENU,true);else if(idx==1)resetXiangqi();else if(idx==2&&!xiangqiOver&&xiangqi.undo()){selectedX=selectedY=pendingX=pendingY=-1;message="已撤销一步";}invalidate();return true;}
+        if(mode==GOMOKU||mode==GAME_2048||mode==TAP_RUSH||mode==SNAKE||mode==SIMON||mode==TICTACTOE||mode==COLOR_HUNT||mode==BOUNCE){
+            int idx=barIndex(x,y,2);if(idx<0)return false;if(idx==0)navigateTo(MENU,true);
+            else if(mode==GOMOKU)resetGomoku();else if(mode==GAME_2048)reset2048();else if(mode==TAP_RUSH)resetTapRush();else if(mode==SNAKE)resetSnake();else if(mode==SIMON)resetSimon();else if(mode==TICTACTOE)resetTicTacToe();else if(mode==COLOR_HUNT)resetColorHunt();else resetBounce();
+            invalidate();return true;
+        }
+        if(mode==ABOUT||mode==DONATE){int idx=barIndex(x,y,1);if(idx==0){navigateTo(mode==DONATE?ABOUT:MENU,true);invalidate();return true;}}
         return false;
     }
 
@@ -783,7 +1200,7 @@ public final class GameHubView extends View {
         if(selectedX<0||pendingX<0)return;char piece=xiangqi.pieceAt(selectedX,selectedY);int sx=selectedX,sy=selectedY,tx=pendingX,ty=pendingY;
         XiangqiEngine.MoveResult r=xiangqi.move(sx,sy,tx,ty);selectedX=selectedY=pendingX=pendingY=-1;
         if(r!=XiangqiEngine.MoveResult.ILLEGAL){xqAnimPiece=piece;xqAnimSX=sx;xqAnimSY=sy;xqAnimTX=tx;xqAnimTY=ty;xqMoveAnimStart=SystemClock.elapsedRealtime();}
-        switch(r){case RED_WINS:message="红方获胜";xiangqiOver=true;break;case BLACK_WINS:message="黑方获胜";xiangqiOver=true;break;case CHECK:message=xiangqi.isRedTurn()?"红方被将军":"黑方被将军";break;case OK:message=xiangqi.isRedTurn()?"红方回合":"黑方回合";break;default:message="走法不合法";}
+        switch(r){case RED_WINS:message="红方获胜";xiangqiOver=true;showResult(1,"红方获胜！","中国象棋对局结束");break;case BLACK_WINS:message="黑方获胜";xiangqiOver=true;showResult(1,"黑方获胜！","中国象棋对局结束");break;case CHECK:message=xiangqi.isRedTurn()?"红方被将军":"黑方被将军";break;case OK:message=xiangqi.isRedTurn()?"红方回合":"黑方回合";break;default:message="走法不合法";}
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);invalidate();
     }
 
@@ -795,30 +1212,40 @@ public final class GameHubView extends View {
 
     private void confirmGomoku(){
         if(gomokuPendingX<0||gomokuOver)return;int x=gomokuPendingX,y=gomokuPendingY;gomoku[y][x]=gomokuTurn;gomokuLastX=x;gomokuLastY=y;gomokuStoneAnimStart=SystemClock.elapsedRealtime();
-        if(checkFive(x,y,gomokuTurn)){gomokuOver=true;message=(gomokuTurn==1?"黑方":"白方")+"获胜";}else{gomokuTurn=3-gomokuTurn;message=gomokuTurn==1?"黑方回合":"白方回合";}
+        if(checkFive(x,y,gomokuTurn)){gomokuOver=true;message=(gomokuTurn==1?"黑方":"白方")+"获胜";showResult(1,message+"！","五子连珠，对局结束");}else{gomokuTurn=3-gomokuTurn;message=gomokuTurn==1?"黑方回合":"白方回合";}
         gomokuPendingX=gomokuPendingY=-1;performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);invalidate();
     }
 
     private boolean checkFive(int x,int y,int who){int[][] dirs={{1,0},{0,1},{1,1},{1,-1}};for(int[] dir:dirs){int n=1;for(int s=1;s<5;s++){int xx=x+dir[0]*s,yy=y+dir[1]*s;if(xx<0||xx>=15||yy<0||yy>=15||gomoku[yy][xx]!=who)break;n++;}for(int s=1;s<5;s++){int xx=x-dir[0]*s,yy=y-dir[1]*s;if(xx<0||xx>=15||yy<0||yy>=15||gomoku[yy][xx]!=who)break;n++;}if(n>=5)return true;}return false;}
 
     private void move2048(int dir){
-        if(over2048)return;Game2048Engine.MoveFrame f=game2048.move(dir);if(!f.changed){over2048=!game2048.canMove();invalidate();return;}frame2048=f;anim2048Start=SystemClock.elapsedRealtime();over2048=f.gameOver;
+        if(over2048)return;Game2048Engine.MoveFrame f=game2048.move(dir);if(!f.changed){over2048=!game2048.canMove();if(over2048)showResult(-1,"没有可移动位置","本局 "+game2048.getScore()+" 分");invalidate();return;}frame2048=f;anim2048Start=SystemClock.elapsedRealtime();over2048=f.gameOver;
         if(game2048.getScore()>best2048){best2048=game2048.getScore();prefs.edit().putInt("best_2048",best2048).apply();}
-        if(game2048.hasReached2048())reached2048Shown=true;invalidate();
+        if(game2048.hasReached2048()&&!reached2048Shown){reached2048Shown=true;showTransientResult(1,"达成 2048！","可以继续挑战更高数字");}
+        if(over2048)showResult(-1,"游戏结束","本局 "+game2048.getScore()+" 分");invalidate();
     }
 
     // ---------- Resets / navigation ----------
 
-    private void startMode(int m){mode=m;panX=panY=0;zoom=1f;if(m==XIANGQI)resetXiangqi();else if(m==GOMOKU)resetGomoku();else if(m==GAME_2048)reset2048();else if(m==TAP_RUSH)resetTapRush();else if(m==SNAKE)resetSnake();else if(m==SIMON)resetSimon();performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);invalidate();}
-    public boolean goBack(){if(mode==DONATE){mode=ABOUT;invalidate();return true;}if(mode!=MENU){mode=MENU;invalidate();return true;}return false;}
+    private void navigateTo(int target, boolean back){mode=target;pageBackTransition=back;pageTransitionStart=SystemClock.elapsedRealtime();clearResultOverlay();invalidate();}
+    private void startMode(int m){
+        if(m==FEEDBACK){openFeedbackOnPhone();return;}
+        panX=panY=0;zoom=1f;
+        if(m==XIANGQI)resetXiangqi();else if(m==GOMOKU)resetGomoku();else if(m==GAME_2048)reset2048();else if(m==TAP_RUSH)resetTapRush();else if(m==SNAKE)resetSnake();else if(m==SIMON)resetSimon();else if(m==TICTACTOE)resetTicTacToe();else if(m==COLOR_HUNT)resetColorHunt();else if(m==BOUNCE)resetBounce();
+        navigateTo(m,false);performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+    }
+    public boolean goBack(){if(mode==DONATE){navigateTo(ABOUT,true);return true;}if(mode!=MENU){navigateTo(MENU,true);return true;}return false;}
 
-    private void resetAll(){resetXiangqi();resetGomoku();reset2048();resetTapRush();resetSnake();resetSimon();mode=MENU;menuScroll=0;}
-    private void resetXiangqi(){xiangqi.reset();selectedX=selectedY=pendingX=pendingY=-1;xiangqiOver=false;xqAnimPiece=0;message="红方回合";panX=panY=0;zoom=1f;}
-    private void resetGomoku(){for(int y=0;y<15;y++)for(int x=0;x<15;x++)gomoku[y][x]=0;gomokuTurn=1;gomokuPendingX=gomokuPendingY=-1;gomokuOver=false;gomokuLastX=gomokuLastY=-1;message="黑方回合";panX=panY=0;zoom=1f;}
-    private void reset2048(){game2048.reset();frame2048=null;over2048=false;reached2048Shown=false;}
-    private void resetTapRush(){tapScore=0;tapOver=false;tapStart=SystemClock.elapsedRealtime();post(()->{placeTapTarget();invalidate();});}
-    private void resetSnake(){snake.clear();snake.addFirst(new Cell(5,6));snake.addLast(new Cell(4,6));snake.addLast(new Cell(3,6));snakeDir=1;snakeScore=0;snakeOver=false;snakeRunning=false;placeSnakeFood();}
-    private void resetSimon(){simonSeq.clear();simonSeq.add(random.nextInt(4));simonInputIndex=0;simonOver=false;simonShowing=true;simonRoundStart=SystemClock.elapsedRealtime()+550;simonTapFlash=-1;}
+    private void resetAll(){resetXiangqi();resetGomoku();reset2048();resetTapRush();resetSnake();resetSimon();resetTicTacToe();resetColorHunt();resetBounce();mode=MENU;menuScroll=0;pageTransitionStart=SystemClock.elapsedRealtime();}
+    private void resetXiangqi(){clearResultOverlay();xiangqi.reset();selectedX=selectedY=pendingX=pendingY=-1;xiangqiOver=false;xqAnimPiece=0;message="红方回合";panX=panY=0;zoom=1f;}
+    private void resetGomoku(){clearResultOverlay();for(int y=0;y<15;y++)for(int x=0;x<15;x++)gomoku[y][x]=0;gomokuTurn=1;gomokuPendingX=gomokuPendingY=-1;gomokuOver=false;gomokuLastX=gomokuLastY=-1;message="黑方回合";panX=panY=0;zoom=1f;}
+    private void reset2048(){clearResultOverlay();game2048.reset();frame2048=null;over2048=false;reached2048Shown=false;}
+    private void resetTapRush(){clearResultOverlay();tapScore=0;tapOver=false;tapResultShown=false;tapStart=SystemClock.elapsedRealtime();post(()->{placeTapTarget();invalidate();});}
+    private void resetSnake(){clearResultOverlay();snake.clear();snake.addFirst(new Cell(5,6));snake.addLast(new Cell(4,6));snake.addLast(new Cell(3,6));snakeDir=1;snakeScore=0;snakeOver=false;snakeRunning=false;snakeWon=false;placeSnakeFood();}
+    private void resetSimon(){clearResultOverlay();simonSeq.clear();simonSeq.add(random.nextInt(4));simonInputIndex=0;simonOver=false;simonWon=false;simonShowing=true;simonRoundStart=SystemClock.elapsedRealtime()+550;simonTapFlash=-1;}
+    private void resetTicTacToe(){clearResultOverlay();for(int i=0;i<9;i++)ttt[i]=0;tttOver=false;tttResult=0;tttLast=-1;tttAiDue=0;}
+    private void resetColorHunt(){clearResultOverlay();colorGridN=2;colorScore=0;colorOver=false;colorWon=false;colorTarget=random.nextInt(4);colorDeadline=SystemClock.elapsedRealtime()+25000;colorFlash=-1;}
+    private void resetBounce(){clearResultOverlay();bounceHits=0;bounceRunning=false;bounceOver=false;bounceWon=false;bounceLastTick=0;bounceBallX=bounceBallY=bounceVx=bounceVy=bouncePaddleX=0;}
 
     private void placeTapTarget(){float s=minSide(),margin=s*.13f,top=headerBottom()+s*.05f,bottom=bottomBarTop()-s*.06f,left=margin,right=getWidth()-margin;if(right<=left||bottom<=top){targetX=getWidth()/2f;targetY=getHeight()/2f;return;}targetX=left+random.nextFloat()*(right-left);targetY=top+random.nextFloat()*(bottom-top);}
 

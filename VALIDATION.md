@@ -1,12 +1,19 @@
-# Validation notes
+# v4.0 Validation Notes
 
-本交付包已完成以下离线检查：
+已在交付环境执行：
 
-- `GameHubView.java`、`Game2048Engine.java`、`XiangqiEngine.java`、`MainActivity.java`：使用轻量 Android API stub 进行 `javac` 语法 / 类型检查，检查通过。
-- `Game2048EngineTest.java`：验证左右/上下合并、连续相同数字不重复合并、得分、2048 达成及无可移动状态，测试通过。
-- 所有 XML 资源：通过 XML parser 检查。
-- 微信收款码：原图只做裁切；裁切资源使用 OpenCV QRCodeDetector 验证可解码。
-- 收款码按典型圆形手表显示尺寸缩小时采用不插值绘制，保留二维码硬边，减少缩放模糊。
-- 圆屏布局采用相对屏幕尺寸和圆屏安全宽度：菜单卡片、底部按钮、2048/贪吃蛇/记忆闪烁主体均避开圆屏边缘高风险区。
+- Java 源码括号 / 圆括号平衡检查通过。
+- 使用 `javac` 做语法阶段检查：仅出现缺少 Android SDK 类型的预期错误，未发现 `';' expected`、`illegal start`、`reached end of file` 等 Java 语法错误。
+- `Game2048EngineTest` 重新编译并运行通过。
+- `AndroidManifest.xml` / values XML 保持可解析结构。
+- 新二维码资源已从用户提供图片裁去外围大面积绿色空白并保存为 PNG，未重绘二维码内容。
+- 圆屏布局使用统一安全宽度：菜单约 70%、底部操作区约 66%，新增游戏主棋盘 / 主交互区约 49%–50%（弹球区约 68%），避免落入圆屏四角不可见区域。
 
-由于当前执行环境没有 Android SDK / AAPT2 / D8，因此未在此环境产出新的 APK。建议最终在至少一个 384–396 px 圆屏和一个 450–466 px 圆屏 Wear OS 模拟器或真机上做最后一轮视觉/触控验收。
+建议在 Android Studio / Wear OS Emulator / 真机进一步验证：
+
+1. 320×320、384×384、454×454 圆屏上的所有菜单项与底部按钮。
+2. 方屏设备上的菜单卡、结果层和 3 款新增游戏。
+3. 左边缘右滑返回与 2048 / 贪吃蛇中央滑动手势是否符合目标机型习惯。
+4. 配对 Android 手机点击“意见反馈”后是否能打开 `https://www.coolapk.com/u/22532694`。
+5. 不同 Wear OS / 手机配对状态下 `RemoteActivityHelper` 的行为。
+6. 用微信在实际手表屏幕亮度下扫描支持作者二维码。
