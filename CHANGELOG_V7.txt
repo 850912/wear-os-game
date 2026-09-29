@@ -30,6 +30,6 @@ Wear OS Game v7.0
 - Added save support for Block Drop, Flappy, Blackjack and Sokoban.
 
 6. Build
-- compileSdk/targetSdk 36.
-- AGP 8.13.2, Gradle 8.13, Kotlin 2.3.21, JDK 17.
-- Wear Compose 1.7.0, Activity Compose 1.13.0.
+- compileSdk/targetSdk 35.
+- AGP 8.6.1, Gradle 8.7, Kotlin 2.1.21, JDK 17.
+- Wear Compose 1.6.2, Activity Compose 1.10.1.

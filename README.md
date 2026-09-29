@@ -4,7 +4,7 @@ Wear OS 离线小游戏合集。v7 将应用外壳从单体 Java Canvas 菜单�
 
 ## v7.0 主要变化
 
-- 首页、分类页、模式选择、工具页和战绩页迁移到 `androidx.wear.compose:compose-material3:1.7.0`。
+- 首页、分类页、模式选择、工具页和战绩页迁移到 `androidx.wear.compose:compose-material3:1.6.2`。
 - 使用 `AppScaffold`、`ScreenScaffold`、`TransformingLazyColumn`、Wear M3 `Card`、动态配色和列表形变，兼顾圆屏与方屏。
 - 首页由超长列表改为 **4 个分类大卡片**，游戏进入分类子页面，卡片尽量占满可用宽度。
 - 主游戏库从 24 款扩展到 **30 款**；猜拳、骰子对决从主入口移除。
@@ -50,23 +50,22 @@ Wear OS 离线小游戏合集。v7 将应用外壳从单体 Java Canvas 菜单�
 ## 工程参数
 
 - `minSdk 30`
-- `targetSdk 36`
-- `compileSdk 36`
-- Android Gradle Plugin `8.13.2`
-- Gradle `8.13`
-- Kotlin `2.3.21`
+- `targetSdk 35`
+- `compileSdk 35`
+- Android Gradle Plugin `8.6.1`
+- Gradle `8.7`
+- Kotlin `2.1.21`
 - JDK `17`
-- Wear Compose Material 3 / Foundation `1.7.0`
-- Activity Compose `1.13.0`
-- Compose UI Tooling `1.12.1`（debug）
-- Wear Remote Interactions `1.2.0`
+- Wear Compose Material 3 / Foundation `1.6.2`
+- Activity Compose `1.10.1`
+- - Wear Remote Interactions `1.2.0`
 - 版本：`7.0` / `versionCode 7`
 
 ## 编译
 
 Android Studio 打开工程根目录，Gradle Sync 后执行 **Build > Build APK(s)**。
 
-有 Gradle 8.13 和 Android SDK 36 的命令行环境可运行：
+有 Gradle 8.7 和 Android SDK 35 的命令行环境可运行：
 
 ```bash
 gradle assembleDebug --no-daemon --stacktrace
@@ -74,4 +73,4 @@ gradle assembleDebug --no-daemon --stacktrace
 
 Debug APK 默认位于：`app/build/outputs/apk/debug/app-debug.apk`。
 
-`.github/workflows/android.yml` 已同步为 JDK 17 + Gradle 8.13 + Android SDK 36，可直接构建并上传 debug APK artifact。
+`.github/workflows/android.yml` 已同步为 JDK 17 + Gradle 8.7 + Android SDK 35，可直接构建并上传 debug APK artifact。

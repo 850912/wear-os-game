@@ -6,8 +6,8 @@ Historical CI note + v7 status
 
 v7 当前状态（2026-09-29）：
 - workflow 已不再使用 legacy `tools` 包；
-- Android SDK 36 / build-tools 36.0.0；
-- Gradle 8.13 / AGP 8.13.2 / Kotlin 2.3.21 / JDK 17；
+- Android SDK 35 / build-tools 35.0.0；
+- Gradle 8.7 / AGP 8.6.1 / Kotlin 2.1.21 / JDK 17；
 - `termux_push_build.sh` 与 `.github/workflows/android.yml` 已同步到同一构建链。
 
 若本文与 workflow 冲突，以 `.github/workflows/android.yml` 为准。

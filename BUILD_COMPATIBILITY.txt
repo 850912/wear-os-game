@@ -1,16 +1,18 @@
-Wear OS Game build compatibility
-================================
-Android Gradle Plugin : 8.13.2
-Gradle                : 8.13
-Kotlin                : 2.3.21
-JDK                   : 17
-compileSdk            : 36
-targetSdk             : 36
-Wear Compose          : 1.7.0
-Activity Compose      : 1.13.0
-Compose UI tooling    : 1.12.1
+WearBoardGames v7.0.1 build matrix
 
-Reason for this pin:
-- AGP 8.13.x supports API 36.x while avoiding the larger AGP 9 migration surface.
-- JDK 17 remains the supported toolchain for this project.
-- Wear Compose 1.7.0 is the stable line used for Wear Material 3 Expressive in this revision.
+Android Gradle Plugin : 8.6.1
+Gradle                : 8.7
+Kotlin                : 2.1.21
+JDK                   : 17
+compileSdk            : 35
+targetSdk             : 35
+minSdk                : 30
+Wear Compose          : 1.6.2 (Material 3 Expressive)
+Activity Compose      : 1.10.1
+Android Build Tools   : 35.0.0
+
+Compatibility rationale:
+- AGP 8.6.x requires Gradle 8.7 and supports API 35.
+- Kotlin 2.1.21 supports Gradle 8.7 and AGP 8.6.x.
+- Wear Compose Material 3 1.6.2 retains Material 3 Expressive while avoiding the higher AGP/compileSdk floor of the 1.7.x line.
+- JDK 17 is used consistently in CI.

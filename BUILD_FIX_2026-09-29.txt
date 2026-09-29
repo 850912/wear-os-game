@@ -1,0 +1,23 @@
+WearBoardGames v7.0.1 build compatibility hotfix (2026-09-29)
+
+Observed failure:
+- CI invoked Gradle 8.7.
+- Project used Android Gradle Plugin 8.13.2, whose minimum supported Gradle version is 8.13.
+- Build therefore stopped while applying com.android.application, before app sources were compiled.
+
+Compatibility fix applied:
+- Android Gradle Plugin: 8.6.1
+- Gradle / CI runtime: 8.7
+- JDK: 17
+- compileSdk / targetSdk: 35
+- Android build-tools: 35.0.0
+- Kotlin + Compose compiler plugin: 2.1.21
+- Wear Compose Material 3 / Foundation: 1.6.2
+- Activity Compose: 1.10.1
+
+Why Wear Compose 1.6.2:
+- Keeps Wear OS Material 3 Expressive UI.
+- Avoids the higher build-system floor of Wear Compose 1.7.x.
+- Matches the user's observed Gradle 8.7 build environment through AGP 8.6.1.
+
+No gameplay code, 2048 engine logic, save mappings, or 30-game catalog was removed by this hotfix.
