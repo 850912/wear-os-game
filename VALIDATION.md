@@ -39,3 +39,16 @@ The uploaded CI failure was caused by AGP 8.13.2 running under Gradle 8.7. This 
 - Activity Compose 1.10.1
 
 This keeps Material 3 Expressive while removing the incompatible 8.13.x / 1.7.x build-system floor.
+
+## v7.0.2 性能与“支持作者”补丁
+
+- 恢复「工具与关于 → 支持作者」入口，并使用用户提供的微信赞赏码图片。
+- 去除首页/分类卡片的 `SurfaceTransformation` 与 `transformedHeight`，保留 Wear Material 3 卡片样式与 Wear 专用滚动容器，降低滚动时的实时形变开销。
+- `dynamicColorScheme` 改为 `remember` 缓存，避免不必要的重复计算。
+- `GameHubView` 构造阶段不再 `resetAll()`：进入某个游戏时只初始化当前游戏，避免每次启动都生成全部棋盘、迷宫、数独等状态。
+- 赞赏码 Bitmap 改为按需加载，不再在每次进入任意游戏时解码。
+- 除 2048 外，连续 Canvas 动画统一限制约 30 FPS，以降低 Wear OS 上 CPU/GPU 占用与热降频；2048 动画刷新逻辑保持原样。
+- `KEEP_SCREEN_ON` 仅在实际游戏页启用，不再覆盖整个 App。
+- Manifest 明确启用硬件加速。
+- XML 解析通过；Java 核心 `Game2048Engine` / `XiangqiEngine` 编译检查通过；Kotlin/Java 结构平衡检查通过。
+- `Game2048Engine.java` SHA-256 仍为 `8d204750c65c12344ba27de9ec6a4d1c8fb31a2b97734c9b6208ec981c2cf990`，与 v7.0.1 完全一致。

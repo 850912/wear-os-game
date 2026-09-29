@@ -64,6 +64,7 @@ public final class GameHubView extends View {
     public static final int DODGER = 35;
     public static final int STACK_TOWER = 36;
     private static final int RESUME_ITEM = -2;
+    private static final long FRAME_DELAY_MS = 33L; // ~30 FPS: smoother on Wear OS with much lower GPU/CPU load.
 
     private static final String FEEDBACK_URL = "https://www.coolapk.com/u/22532694";
     private static final int GAME_MENU_COUNT = 30;
@@ -319,7 +320,7 @@ public final class GameHubView extends View {
     private boolean sudokuWon;
 
     // About / donation.
-    private final Bitmap donateQr;
+    private Bitmap donateQr;
 
 
     // New v7 games.
@@ -375,22 +376,28 @@ public final class GameHubView extends View {
         savedResumeMode = prefs.getBoolean("has_save", false) ? prefs.getInt("last_mode", -1) : -1;
         best2048 = prefs.getInt("best_2048", 0);
         phoneLinkOpener = new PhoneLinkOpener(context);
-        donateQr = BitmapFactory.decodeResource(getResources(), R.drawable.donate_qr);
         setBackgroundColor(Color.BLACK);
         p.setTypeface(Typeface.create("sans", Typeface.NORMAL));
         setFocusable(true);
         setHapticFeedbackEnabled(true);
-        resetAll();
+        // Lazy initialization: the requested game is reset by openGame()/resumeSavedGameExternal().
+        // Avoid generating every board/maze/puzzle on each game launch.
+        mode = MENU;
+        menuScroll = 0f;
+        pageTransitionStart = 0L;
     }
 
     private float dp(float v) { return v * d; }
+    private void scheduleFrame() {
+        if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) postInvalidateDelayed(FRAME_DELAY_MS);
+    }
     private float minSide() { return Math.min(getWidth(), getHeight()); }
     private float safeWidthFactor() { return roundScreen ? 0.78f : 0.92f; }
 
     @Override protected void onDraw(Canvas c) {
         super.onDraw(c);
         long now = SystemClock.elapsedRealtime();
-        float t = pageTransitionStart == 0 ? 1f : clamp((now - pageTransitionStart) / 230f, 0f, 1f);
+        float t = pageTransitionStart == 0 ? 1f : clamp((now - pageTransitionStart) / 180f, 0f, 1f);
         float eased = easeOutCubic(t);
         c.save();
         if (t < 1f) {
@@ -402,7 +409,7 @@ public final class GameHubView extends View {
         if(edgeBackDragging)c.translate(edgeBackOffset,0);
         drawCurrentScreen(c);
         c.restore();
-        if (t < 1f) postInvalidateOnAnimation();
+        if (t < 1f) scheduleFrame();
         drawResultOverlay(c);
         drawToastHint(c);
         if (pendingModeChoice >= 0) drawModePicker(c);
@@ -667,7 +674,7 @@ public final class GameHubView extends View {
             float py = top + lerp(xqAnimSY, xqAnimTY, t) * cell;
             float pulse = 1f + .05f * (float)Math.sin(Math.PI * moveT);
             drawXiangqiPiece(c, xqAnimPiece, px, py, cell*.40f*pulse);
-            postInvalidateOnAnimation();
+            scheduleFrame();
         }
 
         if (selectedX>=0) ring(c,left+selectedX*cell,top+selectedY*cell,cell*.47f,Color.rgb(60,150,255));
@@ -724,7 +731,7 @@ public final class GameHubView extends View {
         long now=SystemClock.elapsedRealtime();
         for(int y=0;y<15;y++) for(int x=0;x<15;x++) if(gomoku[y][x]!=0){
             float scale=1f;
-            if(x==gomokuLastX&&y==gomokuLastY){float t=clamp((now-gomokuStoneAnimStart)/150f,0,1);scale=overshoot(t);if(t<1)postInvalidateOnAnimation();}
+            if(x==gomokuLastX&&y==gomokuLastY){float t=clamp((now-gomokuStoneAnimStart)/150f,0,1);scale=overshoot(t);if(t<1)scheduleFrame();}
             float r=cell*.40f*scale;
             p.setColor(gomoku[y][x]==1?Color.rgb(24,26,29):Color.rgb(242,242,238));
             c.drawCircle(left+x*cell,top+y*cell,r,p);
@@ -851,7 +858,7 @@ public final class GameHubView extends View {
             p.setColor(Color.rgb(255,86,91)); c.drawCircle(targetX,targetY,minSide()*.055f,p);
             p.setColor(Color.rgb(255,235,235)); c.drawCircle(targetX,targetY,minSide()*.023f,p);
             p.setColor(Color.rgb(255,86,91)); c.drawCircle(targetX,targetY,minSide()*.009f,p);
-            postInvalidateDelayed(32);
+            scheduleFrame();
         } else {
             text(c,"点“重开”再来一局",getWidth()/2f,getHeight()/2f,minSide()*.038f,Color.WHITE,true);
         }
@@ -875,7 +882,7 @@ public final class GameHubView extends View {
             p.setColor(i==0?Color.rgb(92,231,146):Color.rgb(51,193,115));
             c.drawRoundRect(new RectF(left+q.x*cell+inset,top+q.y*cell+inset,left+(q.x+1)*cell-inset,top+(q.y+1)*cell-inset),cell*.20f,cell*.20f,p);i++;
         }
-        if(!snakeOver)postInvalidateDelayed(32);
+        if(!snakeOver)scheduleFrame();
         drawBottomBar(c,new String[]{"菜单","重开"},false);
     }
 
@@ -939,7 +946,7 @@ public final class GameHubView extends View {
             c.drawRoundRect(new RectF(l-shrink,t-shrink,l+cell+shrink,t+cell+shrink),cell*.18f,cell*.18f,p);
         }
         if(simonOver)text(c,simonWon?"完成！点“重开”可再次挑战":"顺序错了，点“重开”再试",getWidth()/2,top+size+s*.07f,s*.029f,Color.rgb(210,216,226),true);
-        if(!simonOver)postInvalidateDelayed(32);
+        if(!simonOver)scheduleFrame();
         drawBottomBar(c,new String[]{"菜单","重开"},false);
     }
 
@@ -1005,7 +1012,7 @@ public final class GameHubView extends View {
             if (i == tttLast) {
                 float t = clamp((now - tttMarkAnimStart) / 180f, 0, 1);
                 scale = overshoot(t);
-                if (t < 1) postInvalidateOnAnimation();
+                if (t < 1) scheduleFrame();
             }
             float r = cell * .25f * scale;
             p.setStyle(Paint.Style.STROKE); p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeWidth(cell * .095f);
@@ -1047,7 +1054,7 @@ public final class GameHubView extends View {
         if (winner == 2) finishTtt(-1);
         else if (tttFull()) finishTtt(2);
         else tttTurn = 1;
-        postInvalidateOnAnimation();
+        scheduleFrame();
     }
 
     private void placeTttMark(int idx, int who) {
@@ -1122,7 +1129,7 @@ public final class GameHubView extends View {
                 c.drawRoundRect(new RectF(l, t, l + cell, t + cell), cell * .18f, cell * .18f, p); p.setStyle(Paint.Style.FILL);
             }
         }
-        if (!colorOver) postInvalidateDelayed(32);
+        if (!colorOver) scheduleFrame();
         drawBottomBar(c, new String[]{"菜单", "重开"}, false);
     }
 
@@ -1174,7 +1181,7 @@ public final class GameHubView extends View {
         float pulse = 1f + .06f * (float)Math.sin(SystemClock.elapsedRealtime() / 110.0);
         p.setColor(Color.rgb(255, 211, 72)); c.drawCircle(bounceBallX, bounceBallY, s * .025f * pulse, p);
         p.setColor(Color.argb(90, 255, 211, 72)); c.drawCircle(bounceBallX, bounceBallY, s * .043f * pulse, p);
-        if (!bounceOver) postInvalidateOnAnimation();
+        if (!bounceOver) scheduleFrame();
         drawBottomBar(c, new String[]{"菜单", "重开"}, false);
     }
 
@@ -1355,7 +1362,7 @@ public final class GameHubView extends View {
         drawGameHeader(c,"记忆配对",memoryWon?("完成 · "+memoryMoves+" 次翻牌"):("已配对 "+memoryPairs+" / 8 · "+memoryMoves+" 次"),false);
         String[] marks={"●","▲","■","◆","★","♥","月","日"};
         for(int i=0;i<16;i++){int col=i%4,row=i/4;float l=left+col*(cell+gap),t=top+row*(cell+gap);boolean open=memoryMatched[i]||i==memoryFirst||i==memorySecond;p.setColor(open?Color.rgb(66,82,103):Color.rgb(35,43,55));c.drawRoundRect(new RectF(l,t,l+cell,t+cell),cell*.17f,cell*.17f,p);if(open)text(c,marks[memoryCards[i]],l+cell/2,t+cell*.65f,cell*.39f,Color.WHITE,true);else{text(c,"?",l+cell/2,t+cell*.66f,cell*.38f,Color.rgb(115,132,153),true);}}
-        if(memoryHideAt>0)postInvalidateDelayed(32);drawBottomBar(c,new String[]{"菜单","重开"},false);
+        if(memoryHideAt>0)scheduleFrame();drawBottomBar(c,new String[]{"菜单","重开"},false);
     }
     private void updateMemoryMatch(){if(memoryHideAt>0&&SystemClock.elapsedRealtime()>=memoryHideAt){memoryFirst=memorySecond=-1;memoryHideAt=0;invalidate();}}
     private void handleMemoryTap(float x,float y){updateMemoryMatch();if(memoryWon||memoryHideAt>0)return;float s=minSide(),size=s*(roundScreen?.54f:.62f),left=(getWidth()-size)/2f,top=s*.205f,gap=s*.012f,cell=(size-gap*3)/4f;if(x<left||x>=left+size||y<top||y>=top+size)return;int col=(int)((x-left)/(cell+gap)),row=(int)((y-top)/(cell+gap));if(col>3||row>3)return;float ix=(x-left)-col*(cell+gap),iy=(y-top)-row*(cell+gap);if(ix>cell||iy>cell)return;int idx=row*4+col;if(memoryMatched[idx]||idx==memoryFirst)return;if(memoryFirst<0){memoryFirst=idx;}else{memorySecond=idx;memoryMoves++;if(memoryCards[memoryFirst]==memoryCards[memorySecond]){memoryMatched[memoryFirst]=memoryMatched[memorySecond]=true;memoryPairs++;memoryFirst=memorySecond=-1;if(memoryPairs==8){memoryWon=true;showResult(1,"全部配对！","用了 "+memoryMoves+" 次翻牌");}}else memoryHideAt=SystemClock.elapsedRealtime()+650;}performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
@@ -1388,7 +1395,7 @@ public final class GameHubView extends View {
     // ---------- Pong ----------
 
     private RectF pongBoard(){float s=minSide(),size=s*(roundScreen?.52f:.60f);return new RectF((getWidth()-size)/2f,s*.205f,(getWidth()+size)/2f,s*.205f+size);}
-    private void drawPong(Canvas c){RectF b=pongBoard();if(pongX==0&&b.width()>0)initPongGeometry();updatePong(b);String sub=aiMode[PONG]?"单人 · 下方挡板是你":"双人 · 上下半屏各控制一方";drawGameHeader(c,"腕上乒乓",pongOver?("比分 "+pongBottomScore+" : "+pongTopScore):sub,false);p.setColor(Color.rgb(17,25,35));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);p.setColor(Color.rgb(64,78,96));p.setStrokeWidth(minSide()*.004f);c.drawLine(b.left,b.centerY(),b.right,b.centerY(),p);float pw=b.width()*.30f,ph=minSide()*.025f;p.setColor(Color.WHITE);c.drawRoundRect(new RectF(pongBottomX-pw/2,b.bottom-ph*2,pongBottomX+pw/2,b.bottom-ph),ph/2,ph/2,p);c.drawRoundRect(new RectF(pongTopX-pw/2,b.top+ph,pongTopX+pw/2,b.top+ph*2),ph/2,ph/2,p);p.setColor(Color.rgb(88,191,255));c.drawCircle(pongX,pongY,minSide()*.018f,p);text(c,pongTopScore+"",b.centerX(),b.top+minSide()*.09f,minSide()*.040f,Color.rgb(145,160,180),true);text(c,pongBottomScore+"",b.centerX(),b.bottom-minSide()*.055f,minSide()*.040f,Color.rgb(145,160,180),true);if(!pongRunning&&!pongOver)text(c,"拖动挡板开始",b.centerX(),b.centerY()+minSide()*.012f,minSide()*.029f,Color.rgb(185,196,210),true);if(pongRunning)postInvalidateOnAnimation();drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void drawPong(Canvas c){RectF b=pongBoard();if(pongX==0&&b.width()>0)initPongGeometry();updatePong(b);String sub=aiMode[PONG]?"单人 · 下方挡板是你":"双人 · 上下半屏各控制一方";drawGameHeader(c,"腕上乒乓",pongOver?("比分 "+pongBottomScore+" : "+pongTopScore):sub,false);p.setColor(Color.rgb(17,25,35));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);p.setColor(Color.rgb(64,78,96));p.setStrokeWidth(minSide()*.004f);c.drawLine(b.left,b.centerY(),b.right,b.centerY(),p);float pw=b.width()*.30f,ph=minSide()*.025f;p.setColor(Color.WHITE);c.drawRoundRect(new RectF(pongBottomX-pw/2,b.bottom-ph*2,pongBottomX+pw/2,b.bottom-ph),ph/2,ph/2,p);c.drawRoundRect(new RectF(pongTopX-pw/2,b.top+ph,pongTopX+pw/2,b.top+ph*2),ph/2,ph/2,p);p.setColor(Color.rgb(88,191,255));c.drawCircle(pongX,pongY,minSide()*.018f,p);text(c,pongTopScore+"",b.centerX(),b.top+minSide()*.09f,minSide()*.040f,Color.rgb(145,160,180),true);text(c,pongBottomScore+"",b.centerX(),b.bottom-minSide()*.055f,minSide()*.040f,Color.rgb(145,160,180),true);if(!pongRunning&&!pongOver)text(c,"拖动挡板开始",b.centerX(),b.centerY()+minSide()*.012f,minSide()*.029f,Color.rgb(185,196,210),true);if(pongRunning)scheduleFrame();drawBottomBar(c,new String[]{"菜单","重开"},false);}
     private void handlePongTouch(float x,float y){if(pongOver)return;RectF b=pongBoard();float pw=b.width()*.30f;if(aiMode[PONG]||y>=b.centerY())pongBottomX=clamp(x,b.left+pw/2,b.right-pw/2);else pongTopX=clamp(x,b.left+pw/2,b.right-pw/2);if(!pongRunning){pongRunning=true;pongLastTick=SystemClock.elapsedRealtime();}invalidate();}
     private void updatePong(RectF b){if(!pongRunning||pongOver)return;long now=SystemClock.elapsedRealtime();if(pongLastTick==0)pongLastTick=now;float dt=Math.min(.035f,(now-pongLastTick)/1000f);pongLastTick=now;if(aiMode[PONG]){float pw=b.width()*.30f;pongTopX=clamp(pongTopX+(pongX-pongTopX)*Math.min(1f,dt*3.4f),b.left+pw/2,b.right-pw/2);}pongX+=pongVx*dt;pongY+=pongVy*dt;float r=minSide()*.018f;if(pongX-r<b.left){pongX=b.left+r;pongVx=Math.abs(pongVx);}if(pongX+r>b.right){pongX=b.right-r;pongVx=-Math.abs(pongVx);}float pw=b.width()*.30f,ph=minSide()*.025f;if(pongVy>0&&pongY+r>=b.bottom-ph*2&&pongY-r<=b.bottom-ph&&Math.abs(pongX-pongBottomX)<=pw*.58f){pongY=b.bottom-ph*2-r;pongVy=-Math.abs(pongVy)*1.025f;pongVx+=(pongX-pongBottomX)*1.2f;}if(pongVy<0&&pongY-r<=b.top+ph*2&&pongY+r>=b.top+ph&&Math.abs(pongX-pongTopX)<=pw*.58f){pongY=b.top+ph*2+r;pongVy=Math.abs(pongVy)*1.025f;pongVx+=(pongX-pongTopX)*1.2f;}if(pongY>b.bottom+r){pongTopScore++;resetPongBall(-1);}else if(pongY<b.top-r){pongBottomScore++;resetPongBall(1);}if(pongBottomScore>=5||pongTopScore>=5){pongOver=true;pongRunning=false;if(aiMode[PONG]){if(pongBottomScore>pongTopScore)showResult(1,"你赢了！",pongBottomScore+" : "+pongTopScore);else showResult(-1,"手表获胜",pongBottomScore+" : "+pongTopScore);}else showResult(1,(pongBottomScore>pongTopScore?"下方玩家":"上方玩家")+"获胜！",pongBottomScore+" : "+pongTopScore);}}
     private void resetPongBall(int direction){RectF b=pongBoard();pongX=b.centerX();pongY=b.centerY();float speed=minSide()*.50f;pongVx=(random.nextBoolean()?1:-1)*speed*.48f;pongVy=direction*speed;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);}
@@ -1396,7 +1403,7 @@ public final class GameHubView extends View {
     // ---------- Brick Breaker ----------
 
     private RectF brickBoard(){float s=minSide(),size=s*(roundScreen?.52f:.60f);return new RectF((getWidth()-size)/2f,s*.205f,(getWidth()+size)/2f,s*.205f+size);}
-    private void drawBrickBreaker(Canvas c){RectF b=brickBoard();if(brickBallX==0&&b.width()>0)initBrickGeometry();updateBrickBreaker(b);drawGameHeader(c,"砖块破坏",brickWon?"清空全部砖块":brickOver?"球掉下去了":"剩余 "+brickLeft+" 块 · "+brickScore+" 分",false);p.setColor(Color.rgb(16,23,32));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);int cols=6,rows=4;float gap=minSide()*.006f,bw=(b.width()-gap*(cols+1))/cols,bh=minSide()*.055f;int[] cs={Color.rgb(255,105,113),Color.rgb(255,174,74),Color.rgb(89,191,255),Color.rgb(82,211,145)};for(int i=0;i<24;i++)if(bricks[i]){int col=i%6,row=i/6;float l=b.left+gap+col*(bw+gap),t=b.top+gap+row*(bh+gap);p.setColor(cs[row]);c.drawRoundRect(new RectF(l,t,l+bw,t+bh),bh*.22f,bh*.22f,p);}float pw=b.width()*.32f,ph=minSide()*.025f;p.setColor(Color.WHITE);c.drawRoundRect(new RectF(brickPaddleX-pw/2,b.bottom-ph*2,brickPaddleX+pw/2,b.bottom-ph),ph/2,ph/2,p);p.setColor(Color.rgb(255,224,98));c.drawCircle(brickBallX,brickBallY,minSide()*.018f,p);if(!brickRunning&&!brickOver)text(c,"拖动挡板开始",b.centerX(),b.centerY()+minSide()*.09f,minSide()*.029f,Color.rgb(185,196,210),true);if(brickRunning)postInvalidateOnAnimation();drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void drawBrickBreaker(Canvas c){RectF b=brickBoard();if(brickBallX==0&&b.width()>0)initBrickGeometry();updateBrickBreaker(b);drawGameHeader(c,"砖块破坏",brickWon?"清空全部砖块":brickOver?"球掉下去了":"剩余 "+brickLeft+" 块 · "+brickScore+" 分",false);p.setColor(Color.rgb(16,23,32));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);int cols=6,rows=4;float gap=minSide()*.006f,bw=(b.width()-gap*(cols+1))/cols,bh=minSide()*.055f;int[] cs={Color.rgb(255,105,113),Color.rgb(255,174,74),Color.rgb(89,191,255),Color.rgb(82,211,145)};for(int i=0;i<24;i++)if(bricks[i]){int col=i%6,row=i/6;float l=b.left+gap+col*(bw+gap),t=b.top+gap+row*(bh+gap);p.setColor(cs[row]);c.drawRoundRect(new RectF(l,t,l+bw,t+bh),bh*.22f,bh*.22f,p);}float pw=b.width()*.32f,ph=minSide()*.025f;p.setColor(Color.WHITE);c.drawRoundRect(new RectF(brickPaddleX-pw/2,b.bottom-ph*2,brickPaddleX+pw/2,b.bottom-ph),ph/2,ph/2,p);p.setColor(Color.rgb(255,224,98));c.drawCircle(brickBallX,brickBallY,minSide()*.018f,p);if(!brickRunning&&!brickOver)text(c,"拖动挡板开始",b.centerX(),b.centerY()+minSide()*.09f,minSide()*.029f,Color.rgb(185,196,210),true);if(brickRunning)scheduleFrame();drawBottomBar(c,new String[]{"菜单","重开"},false);}
     private void handleBrickTouch(float x){if(brickOver)return;RectF b=brickBoard();float pw=b.width()*.32f;brickPaddleX=clamp(x,b.left+pw/2,b.right-pw/2);if(!brickRunning){brickRunning=true;brickLastTick=SystemClock.elapsedRealtime();}invalidate();}
     private void updateBrickBreaker(RectF b){if(!brickRunning||brickOver)return;long now=SystemClock.elapsedRealtime();if(brickLastTick==0)brickLastTick=now;float dt=Math.min(.032f,(now-brickLastTick)/1000f);brickLastTick=now;brickBallX+=brickVx*dt;brickBallY+=brickVy*dt;float r=minSide()*.018f;if(brickBallX-r<b.left){brickBallX=b.left+r;brickVx=Math.abs(brickVx);}if(brickBallX+r>b.right){brickBallX=b.right-r;brickVx=-Math.abs(brickVx);}if(brickBallY-r<b.top){brickBallY=b.top+r;brickVy=Math.abs(brickVy);}float pw=b.width()*.32f,ph=minSide()*.025f;if(brickVy>0&&brickBallY+r>=b.bottom-ph*2&&brickBallY-r<=b.bottom-ph&&Math.abs(brickBallX-brickPaddleX)<=pw*.56f){brickBallY=b.bottom-ph*2-r;brickVy=-Math.abs(brickVy);brickVx+=(brickBallX-brickPaddleX)*1.4f;}int cols=6;float gap=minSide()*.006f,bw=(b.width()-gap*(cols+1))/cols,bh=minSide()*.055f;for(int i=0;i<24;i++)if(bricks[i]){int col=i%6,row=i/6;RectF rr=new RectF(b.left+gap+col*(bw+gap),b.top+gap+row*(bh+gap),b.left+gap+col*(bw+gap)+bw,b.top+gap+row*(bh+gap)+bh);if(brickBallX+r>=rr.left&&brickBallX-r<=rr.right&&brickBallY+r>=rr.top&&brickBallY-r<=rr.bottom){bricks[i]=false;brickLeft--;brickScore+=10;brickVy=-brickVy;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);if(brickLeft==0){brickWon=true;brickOver=true;brickRunning=false;showResult(1,"砖块清空！",brickScore+" 分");}break;}}if(!brickOver&&brickBallY-r>b.bottom){brickOver=true;brickRunning=false;showResult(-1,"球掉下去了","击碎 "+(24-brickLeft)+" 块砖");}}
 
@@ -1491,7 +1498,7 @@ public final class GameHubView extends View {
     private void spawnBlock(){blockType=random.nextInt(BLOCK_MASKS.length);blockRot=0;blockX=3;blockY=-1;blockNextTick=SystemClock.elapsedRealtime()+520;if(!blockFits(blockX,blockY,blockRot)){blockOver=true;showResult(-1,"堆到顶部了","得分 "+blockScore+" · 消除 "+blockLines+" 行");}}
     private void lockBlock(){int mask=BLOCK_MASKS[blockType][blockRot&3];for(int py=0;py<4;py++)for(int px=0;px<4;px++)if(blockMaskCell(mask,px,py)){int bx=blockX+px,by=blockY+py;if(by>=0&&by<BLOCK_H&&bx>=0&&bx<BLOCK_W)blockBoard[by][bx]=blockType+1;}int cleared=0;for(int y=BLOCK_H-1;y>=0;y--){boolean full=true;for(int x=0;x<BLOCK_W;x++)if(blockBoard[y][x]==0){full=false;break;}if(full){cleared++;for(int yy=y;yy>0;yy--)System.arraycopy(blockBoard[yy-1],0,blockBoard[yy],0,BLOCK_W);Arrays.fill(blockBoard[0],0);y++;}}if(cleared>0){blockLines+=cleared;blockScore+=new int[]{0,100,300,500,800}[cleared];performHapticFeedback(HapticFeedbackConstants.CONFIRM);}spawnBlock();}
     private void blockStep(){if(blockOver)return;if(blockFits(blockX,blockY+1,blockRot))blockY++;else lockBlock();}
-    private void updateBlockDrop(){if(blockOver)return;long now=SystemClock.elapsedRealtime();if(now>=blockNextTick){blockStep();long speed=Math.max(180,520-blockLines*14L);blockNextTick=now+speed;}postInvalidateDelayed(32);}
+    private void updateBlockDrop(){if(blockOver)return;long now=SystemClock.elapsedRealtime();if(now>=blockNextTick){blockStep();long speed=Math.max(180,520-blockLines*14L);blockNextTick=now+speed;}scheduleFrame();}
     private void drawBlockDrop(Canvas c){updateBlockDrop();float s=minSide(),available=bottomBarTop()-s*.20f,cell=Math.min(s*.040f,available/BLOCK_H),bw=cell*BLOCK_W,bh=cell*BLOCK_H,left=(getWidth()-bw)/2f,top=s*.155f;drawGameHeader(c,"俄罗斯方块",blockOver?("结束 · "+blockScore+" 分"):("得分 "+blockScore+" · "+blockLines+" 行"),false);p.setColor(Color.rgb(17,24,33));c.drawRoundRect(new RectF(left-s*.01f,top-s*.01f,left+bw+s*.01f,top+bh+s*.01f),s*.025f,s*.025f,p);int[] colors={Color.TRANSPARENT,Color.rgb(70,202,235),Color.rgb(255,212,74),Color.rgb(185,102,255),Color.rgb(80,213,136),Color.rgb(255,95,111),Color.rgb(80,132,250),Color.rgb(255,151,70)};for(int y=0;y<BLOCK_H;y++)for(int x=0;x<BLOCK_W;x++){int v=blockBoard[y][x];if(v!=0)drawBlockCell(c,left+x*cell,top+y*cell,cell,colors[v]);}if(!blockOver){int mask=BLOCK_MASKS[blockType][blockRot&3];for(int py=0;py<4;py++)for(int px=0;px<4;px++)if(blockMaskCell(mask,px,py)){int x=blockX+px,y=blockY+py;if(y>=0)drawBlockCell(c,left+x*cell,top+y*cell,cell,colors[blockType+1]);}}float hintY=Math.min(bottomBarTop()-s*.035f,top+bh+s*.045f);text(c,"左侧◀  中间旋转  右侧▶ · 下滑直落",getWidth()/2f,hintY,s*.020f,Color.rgb(161,174,191),false);drawBottomBar(c,new String[]{"菜单","重开"},false);}
     private void drawBlockCell(Canvas c,float l,float t,float cell,int color){p.setColor(color);float g=Math.max(1f,cell*.08f);c.drawRoundRect(new RectF(l+g,t+g,l+cell-g,t+cell-g),cell*.18f,cell*.18f,p);}
     private void handleBlockTap(float x,float y){if(blockOver)return;if(x<getWidth()*.36f){if(blockFits(blockX-1,blockY,blockRot))blockX--;}else if(x>getWidth()*.64f){if(blockFits(blockX+1,blockY,blockRot))blockX++;}else{int nr=(blockRot+1)&3;if(blockFits(blockX,blockY,nr))blockRot=nr;else if(blockFits(blockX-1,blockY,nr)){blockX--;blockRot=nr;}else if(blockFits(blockX+1,blockY,nr)){blockX++;blockRot=nr;}}performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
@@ -1500,13 +1507,13 @@ public final class GameHubView extends View {
     // ---------- Flappy ----------
 
     private RectF flappyBoard(){float s=minSide(),w=getWidth();return new RectF(w*(roundScreen?.18f:.12f),s*.19f,w*(roundScreen?.82f:.88f),bottomBarTop()-s*.06f);}
-    private void drawFlappy(Canvas c){RectF b=flappyBoard();if(b.width()>0&&(flappyPipeX<=0||flappyY<=0)){flappyY=b.centerY();flappyPipeX=b.right;flappyGapY=b.centerY();flappyV=0;}updateFlappy(b);drawGameHeader(c,"跳跃小鸟",flappyOver?("结束 · "+flappyScore+" 分"):(flappyRunning?(flappyScore+" 分"):"轻点开始"),false);p.setColor(Color.rgb(22,38,54));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);float pipeW=b.width()*.17f,gap=b.height()*.30f;p.setColor(Color.rgb(67,195,111));c.drawRoundRect(new RectF(flappyPipeX,b.top,flappyPipeX+pipeW,flappyGapY-gap/2),minSide()*.015f,minSide()*.015f,p);c.drawRoundRect(new RectF(flappyPipeX,flappyGapY+gap/2,flappyPipeX+pipeW,b.bottom),minSide()*.015f,minSide()*.015f,p);float birdX=b.left+b.width()*.28f,r=minSide()*.026f;p.setColor(Color.rgb(255,205,69));c.drawCircle(birdX,flappyY,r,p);p.setColor(Color.WHITE);c.drawCircle(birdX+r*.35f,flappyY-r*.25f,r*.22f,p);if(!flappyRunning&&!flappyOver)text(c,"轻点任意位置起飞",b.centerX(),b.centerY(),minSide()*.030f,Color.WHITE,true);if(flappyRunning)postInvalidateOnAnimation();drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void drawFlappy(Canvas c){RectF b=flappyBoard();if(b.width()>0&&(flappyPipeX<=0||flappyY<=0)){flappyY=b.centerY();flappyPipeX=b.right;flappyGapY=b.centerY();flappyV=0;}updateFlappy(b);drawGameHeader(c,"跳跃小鸟",flappyOver?("结束 · "+flappyScore+" 分"):(flappyRunning?(flappyScore+" 分"):"轻点开始"),false);p.setColor(Color.rgb(22,38,54));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);float pipeW=b.width()*.17f,gap=b.height()*.30f;p.setColor(Color.rgb(67,195,111));c.drawRoundRect(new RectF(flappyPipeX,b.top,flappyPipeX+pipeW,flappyGapY-gap/2),minSide()*.015f,minSide()*.015f,p);c.drawRoundRect(new RectF(flappyPipeX,flappyGapY+gap/2,flappyPipeX+pipeW,b.bottom),minSide()*.015f,minSide()*.015f,p);float birdX=b.left+b.width()*.28f,r=minSide()*.026f;p.setColor(Color.rgb(255,205,69));c.drawCircle(birdX,flappyY,r,p);p.setColor(Color.WHITE);c.drawCircle(birdX+r*.35f,flappyY-r*.25f,r*.22f,p);if(!flappyRunning&&!flappyOver)text(c,"轻点任意位置起飞",b.centerX(),b.centerY(),minSide()*.030f,Color.WHITE,true);if(flappyRunning)scheduleFrame();drawBottomBar(c,new String[]{"菜单","重开"},false);}
     private void handleFlappyTap(){if(flappyOver)return;if(!flappyRunning){flappyRunning=true;flappyLastTick=SystemClock.elapsedRealtime();}flappyV=-minSide()*.48f;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
     private void updateFlappy(RectF b){if(!flappyRunning||flappyOver)return;long now=SystemClock.elapsedRealtime();float dt=Math.min(.035f,(now-flappyLastTick)/1000f);flappyLastTick=now;flappyV+=minSide()*1.25f*dt;flappyY+=flappyV*dt;flappyPipeX-=minSide()*.24f*dt;float pipeW=b.width()*.17f,birdX=b.left+b.width()*.28f,r=minSide()*.026f,gap=b.height()*.30f;if(flappyPipeX+pipeW<b.left){flappyPipeX=b.right;flappyGapY=b.top+b.height()*(.30f+random.nextFloat()*.40f);flappyScore++;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);}boolean hitPipe=birdX+r>flappyPipeX&&birdX-r<flappyPipeX+pipeW&&(flappyY-r<flappyGapY-gap/2||flappyY+r>flappyGapY+gap/2);if(flappyY-r<b.top||flappyY+r>b.bottom||hitPipe){flappyOver=true;flappyRunning=false;showResult(-1,"撞到了","本局 "+flappyScore+" 分");}}
 
     // ---------- Whack-a-mole ----------
 
-    private void drawWhackMole(Canvas c){long now=SystemClock.elapsedRealtime();if(!moleOver&&now>=moleDeadline){moleOver=true;showResult(moleScore>=18?1:2,"时间到","得分 "+moleScore+" · 连击最高靠手速");}if(!moleOver&&now>=moleNextMove){moleIndex=random.nextInt(9);moleNextMove=now+Math.max(360,760-moleScore*12L);postInvalidateDelayed(32);}float s=minSide(),w=getWidth(),size=s*(roundScreen?.53f:.60f),left=(w-size)/2f,top=s*.205f,gap=s*.014f,cell=(size-gap*2)/3f;drawGameHeader(c,"打地鼠",moleOver?("得分 "+moleScore):("剩余 "+Math.max(0,(moleDeadline-now+999)/1000)+" 秒 · "+moleScore+" 分"),false);for(int i=0;i<9;i++){int col=i%3,row=i/3;RectF r=new RectF(left+col*(cell+gap),top+row*(cell+gap),left+col*(cell+gap)+cell,top+row*(cell+gap)+cell);p.setColor(Color.rgb(35,44,57));c.drawRoundRect(r,cell*.26f,cell*.26f,p);if(i==moleIndex&&!moleOver){p.setColor(Color.rgb(202,136,84));c.drawCircle(r.centerX(),r.centerY(),cell*.28f,p);p.setColor(Color.rgb(45,34,29));c.drawCircle(r.centerX()-cell*.10f,r.centerY()-cell*.06f,cell*.035f,p);c.drawCircle(r.centerX()+cell*.10f,r.centerY()-cell*.06f,cell*.035f,p);}}if(!moleOver)postInvalidateDelayed(100);drawBottomBar(c,new String[]{"菜单","重开"},false);}
+    private void drawWhackMole(Canvas c){long now=SystemClock.elapsedRealtime();if(!moleOver&&now>=moleDeadline){moleOver=true;showResult(moleScore>=18?1:2,"时间到","得分 "+moleScore+" · 连击最高靠手速");}if(!moleOver&&now>=moleNextMove){moleIndex=random.nextInt(9);moleNextMove=now+Math.max(360,760-moleScore*12L);scheduleFrame();}float s=minSide(),w=getWidth(),size=s*(roundScreen?.53f:.60f),left=(w-size)/2f,top=s*.205f,gap=s*.014f,cell=(size-gap*2)/3f;drawGameHeader(c,"打地鼠",moleOver?("得分 "+moleScore):("剩余 "+Math.max(0,(moleDeadline-now+999)/1000)+" 秒 · "+moleScore+" 分"),false);for(int i=0;i<9;i++){int col=i%3,row=i/3;RectF r=new RectF(left+col*(cell+gap),top+row*(cell+gap),left+col*(cell+gap)+cell,top+row*(cell+gap)+cell);p.setColor(Color.rgb(35,44,57));c.drawRoundRect(r,cell*.26f,cell*.26f,p);if(i==moleIndex&&!moleOver){p.setColor(Color.rgb(202,136,84));c.drawCircle(r.centerX(),r.centerY(),cell*.28f,p);p.setColor(Color.rgb(45,34,29));c.drawCircle(r.centerX()-cell*.10f,r.centerY()-cell*.06f,cell*.035f,p);c.drawCircle(r.centerX()+cell*.10f,r.centerY()-cell*.06f,cell*.035f,p);}}if(!moleOver)postInvalidateDelayed(100);drawBottomBar(c,new String[]{"菜单","重开"},false);}
     private void handleWhackMoleTap(float x,float y){if(moleOver)return;float s=minSide(),w=getWidth(),size=s*(roundScreen?.53f:.60f),left=(w-size)/2f,top=s*.205f,gap=s*.014f,cell=(size-gap*2)/3f;if(x<left||x>left+size||y<top||y>top+size)return;int col=(int)((x-left)/(cell+gap)),row=(int)((y-top)/(cell+gap));if(col<0||col>2||row<0||row>2)return;int idx=row*3+col;if(idx==moleIndex){moleScore+=1+Math.min(2,moleCombo/4);moleCombo++;moleIndex=-1;moleNextMove=SystemClock.elapsedRealtime()+180;performHapticFeedback(HapticFeedbackConstants.CONFIRM);}else{moleMisses++;moleCombo=0;performHapticFeedback(HapticFeedbackConstants.REJECT);}invalidate();}
 
     // ---------- Blackjack ----------
@@ -1586,7 +1593,7 @@ public final class GameHubView extends View {
         p.setColor(Color.rgb(18,32,47));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);float ground=b.bottom-b.height()*.13f;p.setColor(Color.rgb(80,98,114));c.drawRect(b.left,ground,b.right,ground+minSide()*.009f,p);
         float px=b.left+b.width()*.20f,ph=minSide()*.075f;p.setColor(Color.rgb(255,208,82));c.drawRoundRect(new RectF(px,runnerY,px+minSide()*.055f,runnerY+ph),minSide()*.012f,minSide()*.012f,p);
         p.setColor(Color.rgb(224,102,79));c.drawRoundRect(new RectF(runnerObstacleX,ground-minSide()*.075f,runnerObstacleX+minSide()*.045f,ground),minSide()*.008f,minSide()*.008f,p);
-        if(runnerRunning)postInvalidateOnAnimation();drawBottomBar(c,new String[]{"菜单","重开"},false);
+        if(runnerRunning)scheduleFrame();drawBottomBar(c,new String[]{"菜单","重开"},false);
     }
     private void handleRunnerTap(){if(runnerOver)return;RectF b=runnerBoard();float ground=b.bottom-b.height()*.13f,playerH=minSide()*.075f;if(!runnerRunning){runnerRunning=true;runnerLastTick=SystemClock.elapsedRealtime();}if(runnerY>=ground-playerH-minSide()*.008f){runnerV=-minSide()*.62f;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);}invalidate();}
 
@@ -1603,14 +1610,14 @@ public final class GameHubView extends View {
         RectF b=dodgerBoard();if(dodgerObstacleY<=0&&b.height()>0)dodgerObstacleY=b.top-minSide()*.06f;updateDodger(b);drawGameHeader(c,"三道闪避",dodgerOver?("结束 · "+dodgerScore+" 分"):(dodgerRunning?(dodgerScore+" 分"):"点左/右半屏移动"),false);
         p.setColor(Color.rgb(17,27,39));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);float laneW=b.width()/3f;p.setColor(Color.rgb(53,67,84));p.setStrokeWidth(minSide()*.004f);c.drawLine(b.left+laneW,b.top,b.left+laneW,b.bottom,p);c.drawLine(b.left+laneW*2,b.top,b.left+laneW*2,b.bottom,p);
         float px=b.left+dodgerLane*laneW+laneW*.5f,py=b.bottom-minSide()*.062f;p.setColor(Color.rgb(82,176,255));float rr=minSide()*.027f;c.drawCircle(px,py,rr,p);p.setColor(Color.rgb(255,112,103));float ox=b.left+dodgerObstacleLane*laneW+laneW*.5f;c.drawRoundRect(new RectF(ox-rr,dodgerObstacleY,ox+rr,dodgerObstacleY+minSide()*.06f),rr*.5f,rr*.5f,p);
-        if(dodgerRunning)postInvalidateOnAnimation();drawBottomBar(c,new String[]{"菜单","重开"},false);
+        if(dodgerRunning)scheduleFrame();drawBottomBar(c,new String[]{"菜单","重开"},false);
     }
     private void handleDodgerTap(float x){if(dodgerOver)return;if(!dodgerRunning){dodgerRunning=true;dodgerLastTick=SystemClock.elapsedRealtime();}if(x<getWidth()/2f)dodgerLane=Math.max(0,dodgerLane-1);else dodgerLane=Math.min(2,dodgerLane+1);performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
 
     // ---------- Stack tower ----------
 
     private RectF stackBoard(){float s=minSide(),w=getWidth();return new RectF(w*(roundScreen?.16f:.10f),s*.20f,w*(roundScreen?.84f:.90f),bottomBarTop()-s*.055f);}
-    private void updateStackTower(RectF b){if(!stackRunning||stackOver)return;long now=SystemClock.elapsedRealtime();float dt=Math.min(.035f,(now-stackLastTick)/1000f);stackLastTick=now;stackMovingX+=stackV*dt;float half=stackMovingW/2;if(stackMovingX-half<b.left){stackMovingX=b.left+half;stackV=Math.abs(stackV);}else if(stackMovingX+half>b.right){stackMovingX=b.right-half;stackV=-Math.abs(stackV);}postInvalidateOnAnimation();}
+    private void updateStackTower(RectF b){if(!stackRunning||stackOver)return;long now=SystemClock.elapsedRealtime();float dt=Math.min(.035f,(now-stackLastTick)/1000f);stackLastTick=now;stackMovingX+=stackV*dt;float half=stackMovingW/2;if(stackMovingX-half<b.left){stackMovingX=b.left+half;stackV=Math.abs(stackV);}else if(stackMovingX+half>b.right){stackMovingX=b.right-half;stackV=-Math.abs(stackV);}scheduleFrame();}
     private void drawStackTower(Canvas c){
         RectF b=stackBoard();if(stackMovingW<=0&&b.width()>0)resetStackTower();updateStackTower(b);drawGameHeader(c,"叠塔",stackWon?"完美登顶":stackOver?"没有重叠，塔倒了":"轻点放下移动方块",false);
         p.setColor(Color.rgb(18,29,41));c.drawRoundRect(b,minSide()*.025f,minSide()*.025f,p);float bh=Math.min(minSide()*.045f,b.height()/12f),baseY=b.bottom-bh;
@@ -1665,6 +1672,7 @@ public final class GameHubView extends View {
         float maxBottom=bottomBarTop()-s*.035f;
         float top=s*.19f;
         float maxH=maxBottom-top;
+        if(donateQr==null) donateQr=BitmapFactory.decodeResource(getResources(), R.drawable.donate_qr);
         float ratio=donateQr==null?1f:(float)donateQr.getWidth()/donateQr.getHeight();
         float destH=maxH,destW=destH*ratio;
         float maxW=w*(roundScreen?.65f:.80f);
@@ -1719,12 +1727,12 @@ public final class GameHubView extends View {
                 int[] cols={Color.rgb(255,91,91),Color.rgb(74,204,122),Color.rgb(75,145,255),Color.rgb(255,202,64)};
                 p.setColor(cols[i%cols.length]); c.drawCircle(x,y,s*.008f,p);
             }
-            postInvalidateOnAnimation();
+            scheduleFrame();
         } else if (resultOverlayKind == -1 && age < 1000) {
             p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(s*.008f); p.setColor(Color.argb(130,255,83,94));
             c.drawCircle(getWidth()/2f,getHeight()/2f,s*(.15f+.035f*(float)Math.sin(age/90.0)),p); p.setStyle(Paint.Style.FILL);
-            postInvalidateOnAnimation();
-        } else if (t < 1f) postInvalidateOnAnimation();
+            scheduleFrame();
+        } else if (t < 1f) scheduleFrame();
     }
 
     private void showToastHint(String text) {
@@ -1861,7 +1869,7 @@ public final class GameHubView extends View {
         if(action==MotionEvent.ACTION_UP){
             float ux=e.getX(),uy=e.getY();
             if(listScreen && pressedBottomIndex<0){
-                if(menuVelocityTracker!=null){menuVelocityTracker.addMovement(e);menuVelocityTracker.computeCurrentVelocity(1000);float vy=menuVelocityTracker.getYVelocity();menuVelocityTracker.recycle();menuVelocityTracker=null;if(menuDragging&&Math.abs(vy)>220){menuScroller.fling(0,(int)menuScroll,0,(int)-vy,0,0,(int)(-minSide()*.10f),(int)(menuMaxScroll+minSide()*.10f));postInvalidateOnAnimation();}else springMenuIfNeeded();}
+                if(menuVelocityTracker!=null){menuVelocityTracker.addMovement(e);menuVelocityTracker.computeCurrentVelocity(1000);float vy=menuVelocityTracker.getYVelocity();menuVelocityTracker.recycle();menuVelocityTracker=null;if(menuDragging&&Math.abs(vy)>220){menuScroller.fling(0,(int)menuScroll,0,(int)-vy,0,0,(int)(-minSide()*.10f),(int)(menuMaxScroll+minSide()*.10f));scheduleFrame();}else springMenuIfNeeded();}
                 if(mode==MENU&&!menuDragging&&Math.hypot(ux-downX,uy-downY)<minSide()*.035f){int idx=findMenuIndex(ux,uy);pressedMenuIndex=-1;if(idx==RESUME_ITEM)resumeSavedGame();else if(idx>=0)startMode(MENU_MODES[idx]);}
                 pressedMenuIndex=-1;invalidate();return true;
             }
@@ -1881,10 +1889,10 @@ public final class GameHubView extends View {
     }
 
     @Override public void computeScroll(){
-        if(menuScroller.computeScrollOffset()){menuScroll=menuScroller.getCurrY();postInvalidateOnAnimation();if(menuScroller.isFinished())springMenuIfNeeded();}
+        if(menuScroller.computeScrollOffset()){menuScroll=menuScroller.getCurrY();scheduleFrame();if(menuScroller.isFinished())springMenuIfNeeded();}
     }
 
-    private void springMenuIfNeeded(){int target=(int)clamp(menuScroll,0,menuMaxScroll);if(Math.abs(menuScroll-target)>.5f){menuScroller.startScroll(0,(int)menuScroll,0,target-(int)menuScroll,260);postInvalidateOnAnimation();}}
+    private void springMenuIfNeeded(){int target=(int)clamp(menuScroll,0,menuMaxScroll);if(Math.abs(menuScroll-target)>.5f){menuScroller.startScroll(0,(int)menuScroll,0,target-(int)menuScroll,260);scheduleFrame();}}
 
     private boolean isConfirmArea(float y){return (mode==XIANGQI&&pendingX>=0||mode==GOMOKU&&gomokuPendingX>=0)&&y>=bottomBarTop()-minSide()*.15f;}
 

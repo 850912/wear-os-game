@@ -3,17 +3,18 @@ package com.example.wearboardgames
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -23,7 +24,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -35,24 +39,22 @@ import androidx.wear.compose.material3.ColorScheme
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
-import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
-import androidx.wear.compose.material3.lazy.rememberTransformationSpec
-import androidx.wear.compose.material3.lazy.transformedHeight
+import java.util.concurrent.atomic.AtomicReference
 
 class MainActivity : ComponentActivity() {
     private var activeGameView: GameHubView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.navigationBarColor = Color.BLACK
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
 
         setContent {
-            val dynamicScheme = dynamicColorScheme(LocalContext.current)
+            val context = LocalContext.current
+            val dynamicScheme = remember(context) { dynamicColorScheme(context) }
             MaterialTheme(colorScheme = dynamicScheme ?: ColorScheme()) {
                 WearGamesApp(
                     onGameViewChanged = { activeGameView = it },
@@ -67,7 +69,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class HubPage { HOME, CATEGORY, MODE, GAME, TOOLS, RECORDS, ABOUT }
+private enum class HubPage { HOME, CATEGORY, MODE, GAME, TOOLS, RECORDS, SUPPORT, ABOUT }
 
 private data class GameDef(
     val mode: Int,
@@ -145,7 +147,7 @@ private fun WearGamesApp(onGameViewChanged: (GameHubView?) -> Unit) {
             }
             HubPage.MODE -> page = HubPage.CATEGORY
             HubPage.CATEGORY, HubPage.TOOLS -> page = HubPage.HOME
-            HubPage.RECORDS, HubPage.ABOUT -> page = HubPage.TOOLS
+            HubPage.RECORDS, HubPage.SUPPORT, HubPage.ABOUT -> page = HubPage.TOOLS
             else -> goHome()
         }
     }
@@ -178,7 +180,7 @@ private fun WearGamesApp(onGameViewChanged: (GameHubView?) -> Unit) {
                     }
                 }
                 item {
-                    ExpressiveCard("工具与关于", "战绩、反馈、版本说明", "⋯") { page = HubPage.TOOLS }
+                    ExpressiveCard("工具与关于", "战绩、支持作者、反馈、版本说明", "⋯") { page = HubPage.TOOLS }
                 }
             }
 
@@ -232,6 +234,7 @@ private fun WearGamesApp(onGameViewChanged: (GameHubView?) -> Unit) {
             HubPage.TOOLS -> HubListScreen("工具与关于", "不占用游戏主列表空间") {
                 item { BackCard("返回首页") { page = HubPage.HOME } }
                 item { ExpressiveCard("战绩记录", "查看每款游戏的游玩与最佳成绩", "★") { page = HubPage.RECORDS } }
+                item { ExpressiveCard("支持作者", "查看黑白君的微信赞赏码", "♥") { page = HubPage.SUPPORT } }
                 item {
                     ExpressiveCard("手机反馈", "在配对手机打开反馈主页", "↗") {
                         val sent = PhoneLinkOpener(context).openOnPhone("https://www.coolapk.com/u/22532694")
@@ -251,10 +254,15 @@ private fun WearGamesApp(onGameViewChanged: (GameHubView?) -> Unit) {
                 }
             }
 
-            HubPage.ABOUT -> HubListScreen("关于", "腕上小游戏 · v7.0") {
+            HubPage.SUPPORT -> HubListScreen("支持作者", "感谢支持 · 黑白君") {
                 item { BackCard("返回工具") { page = HubPage.TOOLS } }
-                item { InfoCard("Material 3 Expressive", "首页、分类和模式选择已迁移至 Wear Compose Material 3；游戏画布保留低延迟 Canvas。") }
-                item { InfoCard("适配策略", "卡片铺满可用宽度，圆屏边缘使用 TransformingLazyColumn 动态缩放，方屏保留完整内容。") }
+                item { SupportAuthorCard() }
+            }
+
+            HubPage.ABOUT -> HubListScreen("关于", "腕上小游戏 · v7.0.2") {
+                item { BackCard("返回工具") { page = HubPage.TOOLS } }
+                item { InfoCard("Material 3 Expressive", "首页、分类和模式选择使用 Wear Compose Material 3；关闭高开销卡片形变，游戏画布保留低延迟 Canvas。") }
+                item { InfoCard("适配策略", "卡片铺满可用宽度；圆屏使用更大的安全边距，方屏保留完整内容，减少实时形变计算。") }
                 item { InfoCard("游戏库", "主入口扩展至 30 款；移除猜拳与骰子对决，新增俄罗斯方块、跳跃小鸟、打地鼠、21 点、推箱子、像素跑酷、三道闪避和叠塔。") }
             }
         }
@@ -268,9 +276,13 @@ private fun HubListScreen(
     content: androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope.() -> Unit,
 ) {
     val state = rememberTransformingLazyColumnState()
+    val isRound = LocalConfiguration.current.isScreenRound
     ScreenScaffold(
         scrollState = state,
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(
+            horizontal = if (isRound) 24.dp else 10.dp,
+            vertical = 8.dp,
+        ),
     ) { padding ->
         TransformingLazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -299,13 +311,9 @@ private fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnItemScop
     icon: String,
     onClick: () -> Unit,
 ) {
-    val spec = rememberTransformationSpec()
     Card(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .transformedHeight(this, spec),
-        transformation = SurfaceTransformation(spec),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text("$icon  $title", style = MaterialTheme.typography.titleSmall)
@@ -324,13 +332,35 @@ private fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnItemScop
 
 @Composable
 private fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnItemScope.InfoCard(title: String, body: String) {
-    val spec = rememberTransformationSpec()
     Card(
-        modifier = Modifier.fillMaxWidth().transformedHeight(this, spec),
-        transformation = SurfaceTransformation(spec),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Text(title, style = MaterialTheme.typography.titleSmall)
         Text(body, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnItemScope.SupportAuthorCard() {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text("请黑白君喝杯饮料", style = MaterialTheme.typography.titleSmall)
+            Image(
+                painter = painterResource(R.drawable.support_author_qr),
+                contentDescription = "黑白君微信赞赏码",
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                contentScale = ContentScale.Fit,
+            )
+            Text(
+                "如果这个小工具让你开心了一下，谢谢你的支持 ☺",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -342,13 +372,14 @@ private fun GameHost(
     onExit: () -> Unit,
     onGameViewChanged: (GameHubView?) -> Unit,
 ) {
-    var viewRef by remember { mutableStateOf<GameHubView?>(null) }
+    val viewRef = remember { AtomicReference<GameHubView?>(null) }
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
                 GameHubView(context).also { view ->
-                    viewRef = view
+                    view.keepScreenOn = true
+                    viewRef.set(view)
                     view.setHostListener(object : GameHubView.HostListener {
                         override fun onExitToHub() = onExit()
                     })
@@ -363,8 +394,8 @@ private fun GameHost(
     }
     DisposableEffect(Unit) {
         onDispose {
-            viewRef?.persistCurrentState()
-            viewRef = null
+            viewRef.get()?.persistCurrentState()
+            viewRef.set(null)
             onGameViewChanged(null)
         }
     }

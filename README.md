@@ -1,3 +1,5 @@
+> v7.0.2：性能优化 + 恢复“支持作者”菜单。
+
 # 腕上小游戏 Wear OS · v7.0
 
 Wear OS 离线小游戏合集。v7 将应用外壳从单体 Java Canvas 菜单重构为 **Wear Compose Material 3 Expressive**，游戏核心仍采用低延迟 Canvas；`Game2048Engine.java` 保持原始版本不变。
