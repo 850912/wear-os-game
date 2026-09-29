@@ -1,94 +1,77 @@
-# 腕上小游戏 Wear OS · v6.0
+# 腕上小游戏 Wear OS · v7.0
 
-原生 Java + Android Canvas 的离线 Wear OS 小游戏合集，包名保持 `com.example.wearboardgames`。
+Wear OS 离线小游戏合集。v7 将应用外壳从单体 Java Canvas 菜单重构为 **Wear Compose Material 3 Expressive**，游戏核心仍采用低延迟 Canvas；`Game2048Engine.java` 保持原始版本不变。
 
-## v6.0 重点
+## v7.0 主要变化
 
-- 游戏由 13 款扩展到 **24 款**，按「棋盘对战 / 益智解谜 / 反应街机 / 轻松挑战」四类展示。
-- 主菜单针对圆屏、小屏放大标题、卡片和触控区域；加入惯性滑动、越界阻尼、顶部/底部回弹，以及表冠/旋钮滚动。
-- 游戏底部“菜单 / 重开 / 撤销”按钮扩大，并使用“按下与抬起都在同一按钮内才触发”的防误触判定。
-- 保持 `windowSwipeToDismiss=false`，并消费系统 Back；App 内不使用右划返回，让 2048、贪吃蛇、迷宫等横向手势优先用于游戏。
-- 适合对战的游戏加入单人 / 双人模式选择。
-- 棋类和解谜类加入自动存档与“继续上次”；已结束对局不会留下无效续玩存档，AI 回合恢复后会继续执行。
-- 新增战绩页，保存游玩次数、完成/胜利次数和最佳成绩。
-- 新增游戏图标均使用 Canvas 原生绘制，不增加第三方图片版权依赖。
+- 首页、分类页、模式选择、工具页和战绩页迁移到 `androidx.wear.compose:compose-material3:1.7.0`。
+- 使用 `AppScaffold`、`ScreenScaffold`、`TransformingLazyColumn`、Wear M3 `Card`、动态配色和列表形变，兼顾圆屏与方屏。
+- 首页由超长列表改为 **4 个分类大卡片**，游戏进入分类子页面，卡片尽量占满可用宽度。
+- 主游戏库从 24 款扩展到 **30 款**；猜拳、骰子对决从主入口移除。
+- 新增：俄罗斯方块、跳跃小鸟、打地鼠、21 点、推箱子、像素跑酷、三道闪避、叠塔。
+- 数独改为真正可编辑玩法：可输入、修改、清除，行/列/宫冲突标红，不再要求每一步必须直接命中答案。
+- “重开”改为 2.2 秒内二次确认，且收紧底部按钮命中区，减少误触。
+- 井字棋使用完整 Minimax；五子棋、四子棋、黑白棋加入更强的局面评分；Nim 保留最佳策略。
+- 自动存档覆盖 17 款可持续游戏；游戏容器销毁、切后台和游戏内返回都会尝试保存。
+- 2048 核心引擎未修改，保留原逻辑。
 
-## 24 款游戏
+## 30 款主入口游戏
 
-### 棋盘对战（7）
+### 棋盘对战（6）
 
-1. 中国象棋
-2. 五子棋（单人 AI / 双人）
-3. 井字棋（单人 AI / 双人）
-4. 四子棋（单人 AI / 双人）
-5. 黑白棋 6×6（单人 AI / 双人）
-6. Nim 取石（单人 AI / 双人）
-7. 猜拳挑战
+中国象棋、五子棋、井字棋、四子棋、黑白棋、Nim 取石。
 
-### 益智解谜（7）
+### 益智解谜（8）
 
-8. 2048
-9. 数字华容道 3×3
-10. 熄灯解谜 4×4
-11. 迷你扫雷 5×5
-12. 记忆配对 4×4
-13. 迷宫逃脱 9×9
-14. 4×4 数独
+2048、数字华容道、熄灯解谜、迷你扫雷、记忆配对、迷宫逃脱、4×4 数独、推箱子。
 
-### 反应街机（7）
+### 街机经典（9）
 
-15. 反应点击
-16. 贪吃蛇
-17. 记忆闪烁
-18. 色块猎手
-19. 弹球挑战
-20. 腕上乒乓（单人 / 双人同屏）
-21. 砖块破坏
+俄罗斯方块、贪吃蛇、跳跃小鸟、腕上乒乓、砖块破坏、弹球挑战、像素跑酷、三道闪避、叠塔。
 
-### 轻松挑战（3）
+### 轻松挑战（7）
 
-22. 数字连点 1→16
-23. 极速心算
-24. 骰子对决（单人 / 双人）
+反应点击、记忆闪烁、色块猎手、数字连点、极速心算、打地鼠、21 点。
 
-## 存档与记录
+## 自动存档
 
-自动续玩支持：中国象棋、五子棋、2048、井字棋、数字华容道、熄灯解谜、迷你扫雷、四子棋、黑白棋、记忆配对、迷宫、Nim、4×4 数独。
+可恢复：中国象棋、五子棋、井字棋、四子棋、黑白棋、Nim、2048、数字华容道、熄灯解谜、迷你扫雷、记忆配对、迷宫、数独、推箱子、俄罗斯方块、跳跃小鸟、21 点。
 
-主页出现“继续上次”卡片时，可直接恢复最近一次有效存档。游戏进入后台时也会尝试保存当前可恢复状态。
+主页会在存在有效存档时显示“继续”卡片。已经结束的对局不会继续保留无效存档。
 
-“战绩记录”页面按分类显示每款游戏的游玩次数、完成/胜利次数和最佳记录。
+## UI / Wear OS 适配
 
-## Wear OS 交互优化
-
-- 圆屏安全宽度增大，卡片和文字更适合手表阅读。
-- 主菜单和战绩页支持惯性 fling、越界阻尼与回弹动画。
-- 支持 Wear OS 旋转输入的 `AXIS_SCROLL`。
-- 底部按钮高度和安全区增大，减少误触。
-- 五子棋、中国象棋保留缩放 / 拖动画布能力。
-- 水平滑动不会触发 App 内返回。
+- Wear Material 3 Expressive 外壳使用动态表盘配色；不支持动态配色时回退到默认 Wear M3 主题。
+- `TransformingLazyColumn` 负责圆屏边缘缩放/形变，方屏保持完整卡片宽度。
+- 游戏保留 Canvas 以保证滑动、拖拽、实时动画延迟；共享标题、圆角控制区、反馈和底部操作统一放大。
+- 保留 `windowSwipeToDismiss=false`，避免 2048、贪吃蛇、迷宫、俄罗斯方块、推箱子等横向手势被系统返回抢走。
+- 支持表冠/旋钮滚动备用 Canvas 列表；Compose 列表由 Wear Foundation 处理滚动。
 
 ## 工程参数
 
 - `minSdk 30`
-- `targetSdk 35`
-- `compileSdk 35`
-- Android Gradle Plugin `8.6.1`
-- Gradle `8.7`
+- `targetSdk 36`
+- `compileSdk 36`
+- Android Gradle Plugin `8.13.2`
+- Gradle `8.13`
+- Kotlin `2.3.21`
 - JDK `17`
-- AndroidX Wear Remote Interactions `1.2.0`
-- 版本：`6.0` / `versionCode 6`
+- Wear Compose Material 3 / Foundation `1.7.0`
+- Activity Compose `1.13.0`
+- Compose UI Tooling `1.12.1`（debug）
+- Wear Remote Interactions `1.2.0`
+- 版本：`7.0` / `versionCode 7`
 
 ## 编译
 
-用 Android Studio 打开工程根目录，完成 Gradle Sync 后选择 **Build > Build APK(s)**。
+Android Studio 打开工程根目录，Gradle Sync 后执行 **Build > Build APK(s)**。
 
-本机已有 Gradle 8.7 时也可运行：
+有 Gradle 8.13 和 Android SDK 36 的命令行环境可运行：
 
 ```bash
-gradle assembleDebug --no-daemon
+gradle assembleDebug --no-daemon --stacktrace
 ```
 
-Debug APK 通常生成在：`app/build/outputs/apk/debug/app-debug.apk`。
+Debug APK 默认位于：`app/build/outputs/apk/debug/app-debug.apk`。
 
-仓库内 `.github/workflows/android.yml` 可在 GitHub Actions 上使用 JDK 17 + Gradle 8.7 + Android SDK 35 自动构建 debug APK。
+`.github/workflows/android.yml` 已同步为 JDK 17 + Gradle 8.13 + Android SDK 36，可直接构建并上传 debug APK artifact。

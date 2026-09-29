@@ -1,15 +1,13 @@
-2026-09-27 CI fix v3
+Historical CI note + v7 status
+==============================
 
-Observed failure:
-- GitHub Actions was still executing an OLD workflow with:
-  cmdline-tools-version: 12266719
-  packages: tools platform-tools
-- sdkmanager then failed: Failed to find package 'tools'.
+2026-09-27 的旧问题：GitHub Actions 曾执行过包含 legacy Android SDK package
+`tools` 的旧 workflow，因此在真正编译 APP 之前失败。
 
-Changes:
-- Removed android-actions/setup-android from workflow.
-- Use preinstalled GitHub-hosted Android SDK cmdline-tools.
-- Install only platform-tools, platforms;android-35, build-tools;35.0.0.
-- Keep JDK 17, Gradle 8.7, AGP 8.6.1.
-- Hardened Termux push script to force-write workflow and verify the remote GitHub copy before waiting for Actions.
-- ZIP layout flattened so project files are at archive root.
+v7 当前状态（2026-09-29）：
+- workflow 已不再使用 legacy `tools` 包；
+- Android SDK 36 / build-tools 36.0.0；
+- Gradle 8.13 / AGP 8.13.2 / Kotlin 2.3.21 / JDK 17；
+- `termux_push_build.sh` 与 `.github/workflows/android.yml` 已同步到同一构建链。
+
+若本文与 workflow 冲突，以 `.github/workflows/android.yml` 为准。

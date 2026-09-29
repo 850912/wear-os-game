@@ -1,21 +1,39 @@
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
 }
 
 android {
     namespace 'com.example.wearboardgames'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId 'com.example.wearboardgames'
         minSdk 30
-        targetSdk 35
-        versionCode 6
-        versionName '6.0'
+        targetSdk 36
+        versionCode 7
+        versionName '7.0'
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
     }
 }
 
-
 dependencies {
+    implementation "androidx.activity:activity-compose:1.13.0"
+    implementation "androidx.wear.compose:compose-material3:1.7.0"
+    implementation "androidx.wear.compose:compose-foundation:1.7.0"
     implementation "androidx.wear:wear-remote-interactions:1.2.0"
+    debugImplementation "androidx.compose.ui:ui-tooling:1.12.1"
 }

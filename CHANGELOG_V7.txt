@@ -1,0 +1,35 @@
+Wear OS Game v7.0
+=================
+
+1. UI / architecture
+- Replaced the long Canvas home menu with Wear Compose Material 3 Expressive.
+- Added category subpages, full-width cards, dynamic watch-face colors, AppScaffold/ScreenScaffold and TransformingLazyColumn.
+- Kept game rendering on Canvas for low-latency gestures/animation; Game2048Engine remains byte-identical to v6.
+
+2. Game library
+- 30 visible games across 4 categories.
+- Removed Rock-Paper-Scissors and Dice Duel from the primary catalog.
+- Added Block Drop, Flappy, Whack-a-Mole, Blackjack, Sokoban, Pixel Runner, Three-Lane Dodger, Stack Tower.
+
+3. Gameplay fixes
+- Sudoku now accepts editable 1-4 input, clear, conflict highlighting and full-board validation.
+- Restart requires a second tap within 2.2 seconds.
+- Bottom button hitboxes no longer expand outside the visible control.
+- Blackjack now handles soft Aces correctly.
+
+4. AI
+- Tic-Tac-Toe: full minimax.
+- Gomoku: attack/defense pattern scoring.
+- Connect Four: board evaluation plus opponent reply threat scoring.
+- Reversi: positional weights, corners and opponent-mobility penalty.
+- Nim: optimal modulo strategy retained.
+
+5. Save/resume
+- 17 games are resumable.
+- Compose game-host disposal now persists state, covering system back/navigation in addition to onPause and in-game menu exits.
+- Added save support for Block Drop, Flappy, Blackjack and Sokoban.
+
+6. Build
+- compileSdk/targetSdk 36.
+- AGP 8.13.2, Gradle 8.13, Kotlin 2.3.21, JDK 17.
+- Wear Compose 1.7.0, Activity Compose 1.13.0.

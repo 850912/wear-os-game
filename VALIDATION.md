@@ -1,23 +1,30 @@
-# v6.0 Validation Notes
+# v7.0 Validation Notes
 
-已在当前交付环境完成以下检查：
+当前交付环境完成的检查：
 
-- `GameHubView.java` 花括号 / 圆括号 / 方括号数量平衡，无异常替换字符。
-- 使用轻量 Android API stub 对 `GameHubView.java`、`MainActivity.java`、`PhoneLinkOpener.java`、`Game2048Engine.java`、`XiangqiEngine.java` 做完整 Java 静态编译，`javac` 状态为 0。
-- 两个纯 Java 游戏引擎在无 Android 依赖下直接 `javac` 编译通过。
-- 菜单配置为 24 款游戏 + 战绩记录 + 意见反馈 + 关于；四个游戏分类均已接入绘制与点击入口。
-- 11 款新增游戏均使用 Android Canvas 原生绘制，无新增网络图片或第三方视觉素材。
-- 已检查自动存档、恢复入口、AI 回合恢复、已结束对局不保留续玩存档的代码路径。
-- 保留 `android:windowSwipeToDismiss=false`；`MainActivity.onBackPressed()` 消费返回事件。
-- 主菜单 / 战绩页已接入 `OverScroller`、`VelocityTracker`、越界阻尼、回弹与 `AXIS_SCROLL`。
+- Compose 主入口统计为 30 款且 mode ID 无重复：棋盘 6、益智 8、街机 9、轻松 7。
+- 30/30 主入口均能在 `GameHubView` 找到绘制分发与 reset 分发。
+- 17 个标记为可恢复的游戏均接入 Java `canPersistMode` 存档层。
+- `GameHubView.java` 与 `MainActivity.kt` 的花括号结构平衡。
+- 原始压缩包与当前 `Game2048Engine.java` SHA-256 一致：`8d204750c65c12344ba27de9ec6a4d1c8fb31a2b97734c9b6208ec981c2cf990`。
+- 新旧备用菜单数组均为 30 个游戏 + 3 个工具项，标题 / 副标题 / 分类 / mode 数量一致。
+- 数独输入、清除、冲突检测与完成检测路径已接全。
+- 新增 8 款主入口游戏均为代码绘制，无外部图片依赖。
+- GitHub Actions 与 Termux 推送脚本均已同步 Android SDK 36 + Gradle 8.13。
+- JDK 17 已独立编译通过 `Game2048Engine.java` 与 `XiangqiEngine.java`。
+- Manifest 与全部 Android 资源 XML 均已通过 XML 解析检查。
+- `termux_push_build.sh` 已通过 `bash -n` 语法检查。
+- 除 2048 外的 Canvas 游戏共享标题/提示字号已放大；2048 保持原有标题字号与核心引擎。
+- 参考 Google Wear OS API 文档核对了 `AppScaffold`、`ScreenScaffold`、`TransformingLazyColumn`、`SurfaceTransformation`、`rememberTransformationSpec`、`transformedHeight` 与动态配色的用法。
 
-当前容器没有完整 Android SDK / Gradle 运行环境，因此这里没有直接产出 APK，也没有宣称完成真机 UI 验证。工程保留 GitHub Actions 构建配置，可在 Android Studio、CI 或 Wear OS SDK 环境进行正式 `assembleDebug`。
+限制：当前容器没有 Android SDK / Gradle，本地无法执行真实 `assembleDebug`。`javac` 检查会因缺少 Android 类库而产生依赖解析错误，因此本交付不冒充“已本机编译成功”。仓库 CI 已配置真实 Android SDK 36 构建，可在 GitHub Actions 或 Android Studio 中完成最终 APK 编译。
 
-建议真机/模拟器重点验证：
+建议设备回归矩阵：
 
-1. 320×320、384×384、454×454 圆屏上的菜单尺寸、底部按钮与弧边安全区。
-2. 快速甩动列表后顶部/底部回弹手感，以及表冠滚动。
-3. 2048、贪吃蛇、迷宫横向滑动不会触发返回。
-4. 单人 AI 游戏在轮到 AI 时切后台再回来，AI 能继续执行。
-5. 13 类可恢复游戏退出/重进后的“继续上次”。
-6. 24 款游戏分别进行至少一轮完成/失败/重开，确认战绩数据符合预期。
+1. 320×320、384×384、454×454 圆屏；典型方屏 / 矩形 Wear OS 模拟器。
+2. 首页、四个分类、模式选择、工具、战绩的首尾滚动与表冠滚动。
+3. 30 款游戏逐一进入、重开、退出；验证第一次“重开”只提示，第二次才执行。
+4. 数独：填错冲突、修改、清除、完成；推箱子各关滑动边界。
+5. 五子棋 / 井字棋 / 四子棋 / 黑白棋单人 AI 与双人模式。
+6. 17 款可恢复游戏分别中途退到首页、切后台、重新启动后继续。
+7. 2048 手势、得分、合并、存档与原版行为回归，重点确认核心引擎未被替换。
