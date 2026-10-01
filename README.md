@@ -1,9 +1,12 @@
-# 腕上小游戏 Wear OS · v8.0.1
+# 腕上小游戏 Wear OS · v8.0.2
 
-面向 Wear OS 小屏/圆屏的离线小游戏合集。v8.0.1 已完成从旧单体 `GameHubView` 到模块化架构的迁移，当前 **81 款游戏 / 6 个分类**。首页、分类、收藏、最近、查找、设置与战绩使用 Wear Compose Material 3；复杂实时游戏使用独立 Canvas View，棋盘游戏采用 View + Engine，短局按类型共享轻量 View。
+面向 Wear OS 小屏/圆屏的离线小游戏合集。v8.0.2 已完成从旧单体 `GameHubView` 到模块化架构的迁移，当前 **81 款游戏 / 6 个分类**。首页、分类、收藏、最近、查找、设置与战绩使用 Wear Compose Material 3；复杂实时游戏使用独立 Canvas View，棋盘游戏采用 View + Engine，短局按类型共享轻量 View。
 
-## v8.0.1 重点
+## v8.0.2 重点
 
+- 新增稳定 Logcat 标签 `WearBoardGames` 和 `scripts/capture_wear_logcat.sh`，可直接从连接的手表抓取应用 PID 日志与 crash buffer。
+- `PhoneLinkOpener` 现在会记录 RemoteActivityHelper 的异步成功/失败，避免“请求已提交”掩盖真正的远端失败。
+- GitHub Actions 升级到 Node 24 代 action（checkout v7 / setup-java v6 / setup-gradle v6 / upload-artifact v6）。
 - `GameHubView.java` 已从运行代码删除，不再存在大一统游戏 Hub。
 - 独立实时 View：Tetris、Snake、Flappy、Runner、Pong、Breakout、Bounce、Pinball、Lane Dodge、Stack、Simon。
 - 棋盘/益智 View + Engine：2048、象棋、五子棋、四子棋、黑白棋、数独、扫雷、迷宫、推箱子。

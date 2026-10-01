@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppLog.i("MainActivity onCreate; version=8.0.2")
         window.navigationBarColor = Color.BLACK
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
@@ -100,6 +101,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        AppLog.i("MainActivity onPause; activeView=${activeGameView?.javaClass?.simpleName ?: "none"}")
         when (val view = activeGameView) {
             is BaseGameView -> view.persistCurrentState()
             is MicroGameView -> view.persistCurrentState()
@@ -132,6 +134,7 @@ private fun WearGamesApp(
     fun enterGame(game: GameDef, asResume: Boolean = false, forceSingle: Boolean? = null) {
         selected = game
         resume = asResume
+        AppLog.i("enterGame mode=${game.mode} title=${game.title} resume=$asResume")
         if (asResume) singlePlayer = prefs.getBoolean("save_ai", true)
         forceSingle?.let { singlePlayer = it }
         gameBackConfirmUntil = 0L
@@ -145,6 +148,7 @@ private fun WearGamesApp(
         if (game.modeChoice) page = HubPage.MODE else enterGame(game, forceSingle = true)
     }
     fun returnFromGame() {
+        AppLog.i("returnFromGame mode=${selected.mode} title=${selected.title}")
         onGameViewChanged(null)
         resume = false
         gameBackConfirmUntil = 0L
@@ -311,7 +315,7 @@ private fun WearGamesApp(
                             Toast.makeText(context, if (sent) "已请求在手机打开" else "未能连接配对手机", Toast.LENGTH_SHORT).show()
                         }
                     }
-                    item(key = "about") { ExpressiveCard("关于", "v8.0.1 · 81 款游戏", "i") { page = HubPage.ABOUT } }
+                    item(key = "about") { ExpressiveCard("关于", "v8.0.2 · 81 款游戏", "i") { page = HubPage.ABOUT } }
                 }
 
                 HubPage.RECORDS -> HubListScreen(
@@ -429,7 +433,7 @@ private fun WearGamesApp(
 
                 HubPage.ABOUT -> HubListScreen(
                     title = "关于",
-                    subtitle = "腕上小游戏 · v8.0.1",
+                    subtitle = "腕上小游戏 · v8.0.2",
                     edgeLabel = "返回",
                     onEdgeClick = { page = HubPage.TOOLS },
                 ) {

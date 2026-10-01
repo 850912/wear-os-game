@@ -1,0 +1,32 @@
+WearBoardGames v8.0.2 repair validation — 2026-10-01
+
+INPUT LOG REVIEW
+- Uploaded 日志.txt contains no com.example.wearboardgames process lines.
+- No WearBoardGames AndroidRuntime/FATAL EXCEPTION stack was present.
+- Visible exceptions/errors belong to Samsung HoneyBoard, Google Assistant, SurfaceFlinger and other phone-side/system components.
+
+SOURCE REPAIR
+- Added stable Logcat tag: WearBoardGames.
+- Added lifecycle/game-route logging in MainActivity.
+- PhoneLinkOpener now records asynchronous RemoteActivityHelper completion/failure instead of only synchronous submission.
+- Added scripts/capture_wear_logcat.sh to capture app PID logs plus Android crash buffer from the connected watch.
+- Version bumped to 8.0.2 / versionCode 22.
+
+CI REPAIR
+- actions/checkout -> v7
+- actions/setup-java -> v6
+- gradle/actions/setup-gradle -> v6
+- actions/upload-artifact -> v6
+- The same workflow remains embedded in termux_push_build.sh and was verified byte-identical.
+- Wear OS 5.1 baseline-profile emulator remains API 35 / system image 35-ext15 / android-wear x86_64.
+
+LOCAL VALIDATION
+- app/build.gradle version check: PASS
+- .github/workflows/android.yml YAML parse: PASS
+- termux_push_build.sh bash -n: PASS
+- scripts/capture_wear_logcat.sh bash -n: PASS
+- embedded Termux workflow == checked-in workflow: PASS
+- AppLog.java + PhoneLinkOpener.java targeted JDK 17 compile with API-contract stubs: PASS
+
+LIMITATION
+A genuine app runtime crash cannot be reconstructed from the uploaded log because that log does not contain the WearBoardGames process. Use scripts/capture_wear_logcat.sh against the watch itself if a runtime issue remains.

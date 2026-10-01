@@ -30,8 +30,8 @@ android {
         applicationId 'com.example.wearboardgames'
         minSdk 30
         targetSdk 35
-        versionCode 21
-        versionName '8.0.1'
+        versionCode 22
+        versionName '8.0.2'
     }
 
     buildFeatures {

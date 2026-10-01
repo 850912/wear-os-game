@@ -62,16 +62,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.7'
 
@@ -88,7 +88,7 @@ jobs:
         run: gradle assembleDebug lintRelease testReleaseUnitTest --no-daemon --stacktrace
 
       - name: Upload lint report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: lint-release-report
@@ -103,16 +103,16 @@ jobs:
       WBG_KEYSTORE_BASE64: ${{ secrets.WBG_KEYSTORE_BASE64 }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.7'
 
@@ -153,7 +153,7 @@ jobs:
           test -n "$(find app/src -type f -name '*baseline-prof*.txt' -print -quit)"
 
       - name: Upload optimized APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wear-os-game-release
           path: app/build/outputs/apk/release/app-release.apk
@@ -161,7 +161,7 @@ jobs:
           retention-days: 14
 
       - name: Upload generated Baseline Profile
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: baseline-profile
           path: app/src/**/generated/baselineProfiles/**

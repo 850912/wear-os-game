@@ -1,9 +1,9 @@
-# WearBoardGames v8.0.1 最终验收记录
+# WearBoardGames v8.0.2 最终验收记录
 
 ## 当前交付环境实际执行并通过
 
-- [x] 审查全部 **56 个 Java/Kotlin 源文件**：44 Java main + 2 Kotlin main + 8 Java test + 1 Kotlin test + 1 Baseline Profile Kotlin。
-- [x] 44 个 Java 主源码：JDK 17 + 最小 Android API 桩完整编译，**0 source errors**。
+- [x] 审查全部 **57 个 Java/Kotlin 源文件**：45 Java main + 2 Kotlin main + 8 Java test + 1 Kotlin test + 1 Baseline Profile Kotlin。
+- [x] 原 v8.0.1 的 44 个 Java 主源码已通过 JDK 17 + Android API 最小桩编译；本轮新增 `AppLog.java` 并修改 `PhoneLinkOpener.java`，两者再次以 JDK 17 + 对应 API 桩编译通过。
 - [x] Java 项目单测：**31 passed / 0 failed**。
 - [x] Kotlin Catalog/路由单测：**2 passed / 0 failed**。
 - [x] 合计项目 JVM 单测：**33 passed / 0 failed**。
@@ -17,7 +17,7 @@
 - [x] 战绩专属指标：Tetris level/lines、Snake length、Flappy pipes 已落地并在战绩页显示。
 - [x] 动画规范：3→2→1→GO、score/combo popup、结果遮罩→卡片进场、Snake squash/death ripple、Runner 空中二次修正。
 - [x] 公共底部控制区与 Tetris 侧控触控目标最低 48dp。
-- [x] `termux_push_build.sh` 通过 `bash -n`，且其写入 workflow 与 `.github/workflows/android.yml` 同步。
+- [x] `termux_push_build.sh` 与 `scripts/capture_wear_logcat.sh` 均通过 `bash -n`，且 Termux 写入的 workflow 与 `.github/workflows/android.yml` 字节一致。
 - [x] MainActivity.kt 无 parser/syntax 类诊断；缺少 Compose/Android classpath 时只有预期 unresolved/inference 诊断。
 
 ## CI / Android 工具链验收配置

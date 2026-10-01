@@ -1,8 +1,8 @@
 # WearBoardGames v7.4 → v8.0 路线图完成验收
 
-完成基线：v8.0.1 / versionCode 21 / 81 款游戏 / 6 分类。本文按用户提供的《后续计划》和《WearBoardGames 开发路线图（v7.4 → v8.0）》逐项验收源码，而不是仅按版本号判断。
+完成基线：v8.0.2 / versionCode 22 / 81 款游戏 / 6 分类。本文按用户提供的《后续计划》和《WearBoardGames 开发路线图（v7.4 → v8.0）》逐项验收源码，而不是仅按版本号判断。
 
-| 阶段 | 结果 | v8.0.1 最终落地 |
+| 阶段 | 结果 | v8.0.2 最终落地 |
 |---|---|---|
 | 1. 拆实时动画游戏 | ✅ 完成 | Tetris / Snake / Flappy / Runner / Pong / Breakout / Bounce / Pinball / LaneDodge / Stack / Simon 为独立实时 View；GameHubView 已删除。 |
 | 2. 拆棋盘与益智 | ✅ 完成 | 2048 / 象棋 / 五子棋 / 四子棋 / 黑白棋 / 数独 / 扫雷 / 迷宫 / 推箱子采用 View + Engine；简单短局进入 micro/puzzle 分组 View。 |
