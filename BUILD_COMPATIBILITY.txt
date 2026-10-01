@@ -1,4 +1,4 @@
-WearBoardGames v7.0.1 build matrix
+WearBoardGames v8.0.0 build matrix
 
 Android Gradle Plugin : 8.6.1
 Gradle                : 8.7
@@ -7,12 +7,14 @@ JDK                   : 17
 compileSdk            : 35
 targetSdk             : 35
 minSdk                : 30
-Wear Compose          : 1.6.2 (Material 3 Expressive)
+Wear Compose          : 1.6.2 (Material 3)
 Activity Compose      : 1.10.1
+Profile Installer     : 1.4.1
 Android Build Tools   : 35.0.0
 
 Compatibility rationale:
-- AGP 8.6.x requires Gradle 8.7 and supports API 35.
-- Kotlin 2.1.21 supports Gradle 8.7 and AGP 8.6.x.
-- Wear Compose Material 3 1.6.2 retains Material 3 Expressive while avoiding the higher AGP/compileSdk floor of the 1.7.x line.
-- JDK 17 is used consistently in CI.
+- AGP 8.6.x supports API 35 and uses Gradle 8.7 / JDK 17 in this project.
+- Kotlin 2.1.21 is kept to avoid unnecessary toolchain churn during the v8 refactor.
+- Wear Compose Material 3 / Foundation 1.6.2 are the stable APIs used by the current UI implementation.
+- Profile Installer 1.4.1 is the stable minimum recommended by current Android Baseline Profile guidance.
+- CI provisions the exact JDK / Gradle / SDK versions above before lint, tests and release build.

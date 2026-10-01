@@ -1,0 +1,11 @@
+# Startup-critical app classes. Compose/Wear libraries contribute their own profile rules.
+Lcom/example/wearboardgames/MainActivity;
+Lcom/example/wearboardgames/MainActivityKt;
+Lcom/example/wearboardgames/GameCatalogKt;
+Lcom/example/wearboardgames/GameDef;
+Lcom/example/wearboardgames/AppSettings;
+Lcom/example/wearboardgames/GameSaveManager;
+Lcom/example/wearboardgames/GameStats;
+Lcom/example/wearboardgames/BaseGameView;
+HSPLcom/example/wearboardgames/MainActivity;-><init>()V
+HSPLcom/example/wearboardgames/MainActivity;->onCreate(Landroid/os/Bundle;)V

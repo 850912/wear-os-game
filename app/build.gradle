@@ -2,18 +2,20 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'org.jetbrains.kotlin.plugin.compose'
+    id 'androidx.baselineprofile'
 }
 
 android {
     namespace 'com.example.wearboardgames'
     compileSdk 35
+    buildToolsVersion '35.0.0'
 
     defaultConfig {
         applicationId 'com.example.wearboardgames'
         minSdk 30
         targetSdk 35
-        versionCode 9
-        versionName '7.0.2'
+        versionCode 20
+        versionName '8.0.0'
     }
 
     buildFeatures {
@@ -28,9 +30,26 @@ android {
     kotlinOptions {
         jvmTarget = '17'
     }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            // This project distributes APKs directly; use the debug key so the optimized
+            // release artifact remains installable from GitHub Actions/Termux builds.
+            signingConfig signingConfigs.debug
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
 }
 
 dependencies {
+    baselineProfile project(':baselineprofile')
+    testImplementation "junit:junit:4.13.2"
+    implementation "androidx.profileinstaller:profileinstaller:1.4.1"
     implementation "androidx.activity:activity-compose:1.10.1"
     implementation "androidx.wear.compose:compose-material3:1.6.2"
     implementation "androidx.wear.compose:compose-foundation:1.6.2"

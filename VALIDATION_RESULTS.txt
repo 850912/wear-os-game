@@ -1,0 +1,30 @@
+WearBoardGames v8.0.0 - final local validation result
+Date: 2026-10-01
+
+PASS  Java main source strict type/lint check: javac --release 17 -Xlint:all -Werror -> 0 errors / 0 warnings
+PASS  Java test source strict type/lint check: javac --release 17 -Xlint:all -Werror -> 0 errors / 0 warnings
+PASS  Java project tests: 28 passed / 0 failed
+PASS  Kotlin catalog/route tests: 2 passed / 0 failed
+PASS  Catalog audit: 81 games / 6 categories / unique mode+title / exactly one route per game
+PASS  v7.4 mode compatibility: core IDs and Micro/Puzzle IDs locked by tests
+PASS  v7.4 save migration: Gomoku / Connect4 / Reversi / Sudoku / Mines / Maze / Sokoban
+PASS  Engine round-trip: 2048 / Xiangqi / Gomoku / Connect4 / Reversi / Sudoku / Mines / Maze / Sokoban
+PASS  TetrisStateCodec v4 round-trip + corruption rejection
+PASS  Resource audit: Manifest + 6 resource XML files parsed; 11 PNG files verified
+PASS  UTF-8/NUL audit: 90 project text/config files checked
+PASS  Shell syntax: termux_push_build.sh passes bash -n
+PASS  GitHub Actions YAML parses and includes lintRelease / testReleaseUnitTest / assembleRelease
+PASS  Project config audit: version 8.0.0 code 20; R8/shrink; baselineprofile module; SDK 35
+PASS  GameHubView removed from runtime source tree and no route fallback remains
+
+OFFICIAL-API CROSS-CHECK
+- Wear Compose 1.6.2 is the current stable 1.6 line and Material 3 is the recommended Wear library.
+- AGP 8.6.x supports API 35 and uses Gradle 8.7 / JDK 17.
+- Baseline Profile producer-module structure matches current Android guidance.
+
+NOT EXECUTED IN THIS SANDBOX
+- Android Gradle Plugin / AAPT2 / Android Lint / D8-R8 / assembleRelease
+- Wear OS emulator/device interaction tests
+- Baseline Profile collection / cold-start Macrobenchmark
+Reason: this sandbox has no Android SDK/Gradle installation or dependency cache, and shell networking cannot resolve external hosts.
+The included GitHub Actions workflow is configured to execute these Android-toolchain checks with JDK 17 / Gradle 8.7 / SDK 35.

@@ -98,14 +98,14 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
 
-      - name: Build Debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Build Optimized APK
+        run: gradle testReleaseUnitTest assembleRelease --no-daemon --stacktrace
 
-      - name: Upload Debug APK
+      - name: Upload Optimized APK
         uses: actions/upload-artifact@v4
         with:
-          name: wear-os-game-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: wear-os-game-release
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
 YAML

@@ -1,0 +1,29 @@
+plugins {
+    id 'com.android.test'
+    id 'org.jetbrains.kotlin.android'
+    id 'androidx.baselineprofile'
+}
+
+android {
+    namespace 'com.example.wearboardgames.baselineprofile'
+    compileSdk 35
+    buildToolsVersion '35.0.0'
+
+    defaultConfig {
+        minSdk 30
+        targetSdk 35
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    targetProjectPath ':app'
+}
+
+dependencies {
+    implementation 'androidx.test.ext:junit:1.2.1'
+    implementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+    implementation 'androidx.benchmark:benchmark-macro-junit4:1.4.1'
+}
+
+baselineProfile {
+    useConnectedDevices true
+}

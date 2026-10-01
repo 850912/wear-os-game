@@ -43,21 +43,64 @@ public final class XiangqiEngine {
     public boolean isRedTurn() { return redTurn; }
 
     public String serialize() {
-        StringBuilder sb = new StringBuilder(96);
+        StringBuilder sb = new StringBuilder(160);
         sb.append(redTurn ? '1' : '0').append('|');
         for (int y=0;y<ROWS;y++) for (int x=0;x<COLS;x++) sb.append(board[y][x] == 0 ? '.' : board[y][x]);
+        sb.append('|');
+        boolean first = true;
+        for (Move m : history) {
+            if (!first) sb.append(';');
+            first = false;
+            sb.append(m.sx).append(',').append(m.sy).append(',').append(m.tx).append(',').append(m.ty)
+                    .append(',').append((int)m.piece).append(',').append((int)m.captured).append(',').append(m.redTurnBefore ? 1 : 0);
+        }
         return sb.toString();
     }
 
     public boolean restore(String state) {
-        if (state == null) return false;
-        int bar = state.indexOf('|');
-        if (bar != 1 || state.length() < 2 + ROWS * COLS) return false;
+        if (state == null || state.length() < 2 + ROWS * COLS) return false;
+        if ((state.charAt(0) != '0' && state.charAt(0) != '1') || state.charAt(1) != '|') return false;
+        int historyBar = state.indexOf('|', 2);
+        String boardText = historyBar >= 0 ? state.substring(2, historyBar) : state.substring(2);
+        if (boardText.length() != ROWS * COLS) return false;
+
+        char[][] parsedBoard = new char[ROWS][COLS];
+        int redKings = 0, blackKings = 0;
+        for (int i=0;i<ROWS*COLS;i++) {
+            char ch = boardText.charAt(i);
+            if (ch == '.') ch = 0;
+            else if (!isValidPiece(ch)) return false;
+            if (ch == 'K') redKings++;
+            if (ch == 'k') blackKings++;
+            parsedBoard[i/COLS][i%COLS] = ch;
+        }
+        if (redKings != 1 || blackKings != 1) return false;
+
+        Deque<Move> parsedHistory = new ArrayDeque<>();
+        if (historyBar >= 0 && historyBar + 1 < state.length()) {
+            String historyText = state.substring(historyBar + 1);
+            for (String encoded : historyText.split(";")) {
+                if (encoded.length() == 0) continue;
+                String[] q = encoded.split(",");
+                if (q.length != 7) return false;
+                try {
+                    int sx=Integer.parseInt(q[0]), sy=Integer.parseInt(q[1]), tx=Integer.parseInt(q[2]), ty=Integer.parseInt(q[3]);
+                    char piece=(char)Integer.parseInt(q[4]), captured=(char)Integer.parseInt(q[5]);
+                    int turn=Integer.parseInt(q[6]);
+                    if(!inside(sx,sy)||!inside(tx,ty)||!isValidPiece(piece)||(captured!=0&&!isValidPiece(captured))||(turn!=0&&turn!=1))return false;
+                    parsedHistory.addLast(new Move(sx,sy,tx,ty,piece,captured,turn==1));
+                } catch (NumberFormatException e) { return false; }
+            }
+        }
+
         redTurn = state.charAt(0) == '1';
-        String b = state.substring(2);
-        for (int i=0;i<ROWS*COLS;i++) board[i/COLS][i%COLS] = b.charAt(i) == '.' ? 0 : b.charAt(i);
-        history.clear();
+        for(int y=0;y<ROWS;y++) System.arraycopy(parsedBoard[y],0,board[y],0,COLS);
+        history.clear(); history.addAll(parsedHistory);
         return true;
+    }
+
+    private static boolean isValidPiece(char p) {
+        return "RHEAKCP rheakcp".indexOf(p) >= 0 && p != ' ';
     }
 
     public boolean isRedPiece(char p) { return p != 0 && Character.isUpperCase(p); }

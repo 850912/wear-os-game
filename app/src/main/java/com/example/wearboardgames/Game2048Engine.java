@@ -51,10 +51,22 @@ public final class Game2048Engine {
         String[] parts = state.split(",");
         if (parts.length != 17) return false;
         try {
-            score = Integer.parseInt(parts[0]);
-            for (int i=0;i<16;i++) board[i/4][i%4] = Integer.parseInt(parts[i+1]);
+            int parsedScore = Integer.parseInt(parts[0]);
+            if (parsedScore < 0) return false;
+            int[][] parsed = new int[SIZE][SIZE];
+            for (int i=0;i<16;i++) {
+                int value = Integer.parseInt(parts[i+1]);
+                if (!isValidTile(value)) return false;
+                parsed[i/4][i%4] = value;
+            }
+            score = parsedScore;
+            for (int y=0;y<SIZE;y++) System.arraycopy(parsed[y], 0, board[y], 0, SIZE);
             return true;
         } catch (NumberFormatException e) { return false; }
+    }
+
+    private static boolean isValidTile(int value) {
+        return value == 0 || (value >= 2 && (value & (value - 1)) == 0);
     }
 
     public MoveFrame move(int direction) {

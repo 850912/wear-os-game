@@ -1,78 +1,104 @@
-> v7.0.2：性能优化 + 恢复“支持作者”菜单。
+# 腕上小游戏 Wear OS · v8.0.0
 
-# 腕上小游戏 Wear OS · v7.0
+面向 Wear OS 小屏/圆屏的离线小游戏合集。v8.0.0 已完成从旧单体 `GameHubView` 到模块化架构的迁移，当前 **81 款游戏 / 6 个分类**。首页、分类、收藏、最近、查找、设置与战绩使用 Wear Compose Material 3；复杂实时游戏使用独立 Canvas View，棋盘游戏采用 View + Engine，短局按类型共享轻量 View。
 
-Wear OS 离线小游戏合集。v7 将应用外壳从单体 Java Canvas 菜单重构为 **Wear Compose Material 3 Expressive**，游戏核心仍采用低延迟 Canvas；`Game2048Engine.java` 保持原始版本不变。
+## v8.0.0 重点
 
-## v7.0 主要变化
+- `GameHubView.java` 已从运行代码删除，不再存在大一统游戏 Hub。
+- 独立实时 View：Tetris、Snake、Flappy、Runner、Pong、Breakout、Bounce、Pinball、Lane Dodge、Stack、Simon。
+- 棋盘/益智 View + Engine：2048、象棋、五子棋、四子棋、黑白棋、数独、扫雷、迷宫、推箱子。
+- 统一基础设施：`BaseGameView`、`GameSaveManager`、`GameStats`、`HapticsManager`、`SoundManager`、`AppSettings`。
+- 首页支持继续游戏、收藏、最近游戏、A-Z 查找、分类、战绩、设置。
+- 设置支持动态配色、触觉、声音、动画、左右手、流畅/均衡/省电模式。
+- 统一双确认“重开 / 返回”，系统 Back 也需二次确认；系统控制区和游戏热区分离。
+- Tetris 加入 NEXT、HOLD、软降、硬降、Combo、等级、暂停、触觉与完整状态存档。
+- v7.x 单槽存档可迁移到 v8，Tetris 使用可单测的 v4 状态编解码。
+- CI 执行 `lintRelease → testReleaseUnitTest → assembleRelease`，Release 开启 R8 与资源压缩。
 
-- 首页、分类页、模式选择、工具页和战绩页迁移到 `androidx.wear.compose:compose-material3:1.6.2`。
-- 使用 `AppScaffold`、`ScreenScaffold`、`TransformingLazyColumn`、Wear M3 `Card`、动态配色和列表形变，兼顾圆屏与方屏。
-- 首页由超长列表改为 **4 个分类大卡片**，游戏进入分类子页面，卡片尽量占满可用宽度。
-- 主游戏库从 24 款扩展到 **30 款**；猜拳、骰子对决从主入口移除。
-- 新增：俄罗斯方块、跳跃小鸟、打地鼠、21 点、推箱子、像素跑酷、三道闪避、叠塔。
-- 数独改为真正可编辑玩法：可输入、修改、清除，行/列/宫冲突标红，不再要求每一步必须直接命中答案。
-- “重开”改为 2.2 秒内二次确认，且收紧底部按钮命中区，减少误触。
-- 井字棋使用完整 Minimax；五子棋、四子棋、黑白棋加入更强的局面评分；Nim 保留最佳策略。
-- 自动存档覆盖 17 款可持续游戏；游戏容器销毁、切后台和游戏内返回都会尝试保存。
-- 2048 核心引擎未修改，保留原逻辑。
+## 81 款游戏
 
-## 30 款主入口游戏
+分类：
 
-### 棋盘对战（6）
+- 棋盘对战：象棋、五子棋、井字棋、四子棋、黑白棋、Nim 等。
+- 益智解谜：2048、数字华容道、熄灯、扫雷、配对、迷宫、数独、推箱子、目标和、二进制开关等。
+- 街机经典：俄罗斯方块、贪吃蛇、Flappy、Pong、Breakout、Bounce、Pinball、Runner、三道闪避、叠塔、自由闪避、换道冲刺、落块穿隙等。
+- 轻松挑战：Simon、色块猎手、快速心算、21 点、石头剪刀布、节拍、平衡等。
+- 反应训练：精准计时、路径记忆、Stroop、移动靶心、镜像点击、数字记忆等。
+- 运动竞技：迷你高尔夫、空气曲棍球、投篮、点球、飞镖、保龄。
 
-中国象棋、五子棋、井字棋、四子棋、黑白棋、Nim 取石。
+完整清单以 `GameCatalog.kt` 为准；所有 mode ID 在目录检查中唯一，并且每个游戏恰好命中一个运行路由。
 
-### 益智解谜（8）
+## 架构
 
-2048、数字华容道、熄灯解谜、迷你扫雷、记忆配对、迷宫逃脱、4×4 数独、推箱子。
+```text
+MainActivity.kt          Wear Compose Material 3 外壳 / 导航 / 收藏 / 最近 / 设置 / 战绩
+GameCatalog.kt           81 款游戏目录
+BaseGameView.java        独立 Canvas 游戏公共 HUD / 输入 / 结果 / 控制 / 统计
+├── TetrisView.java
+├── SnakeView.java
+├── FlappyView.java
+├── RunnerView.java
+├── PongView.java
+├── BreakoutView.java
+├── BounceView.java
+├── PinballView.java
+├── LaneDodgeView.java
+├── StackView.java
+└── SimonView.java
 
-### 街机经典（9）
+View + Engine
+├── Game2048View / Game2048Engine
+├── XiangqiView / XiangqiEngine
+├── GomokuView / GomokuEngine
+├── Connect4View / Connect4Engine
+├── ReversiView / ReversiEngine
+├── SudokuView / SudokuEngine
+├── MinesView / MinesEngine
+├── MazeView / MazeEngine
+└── SokobanView / SokobanEngine
 
-俄罗斯方块、贪吃蛇、跳跃小鸟、腕上乒乓、砖块破坏、弹球挑战、像素跑酷、三道闪避、叠塔。
-
-### 轻松挑战（7）
-
-反应点击、记忆闪烁、色块猎手、数字连点、极速心算、打地鼠、21 点。
-
-## 自动存档
-
-可恢复：中国象棋、五子棋、井字棋、四子棋、黑白棋、Nim、2048、数字华容道、熄灯解谜、迷你扫雷、记忆配对、迷宫、数独、推箱子、俄罗斯方块、跳跃小鸟、21 点。
-
-主页会在存在有效存档时显示“继续”卡片。已经结束的对局不会继续保留无效存档。
-
-## UI / Wear OS 适配
-
-- Wear Material 3 Expressive 外壳使用动态表盘配色；不支持动态配色时回退到默认 Wear M3 主题。
-- `TransformingLazyColumn` 负责圆屏边缘缩放/形变，方屏保持完整卡片宽度。
-- 游戏保留 Canvas 以保证滑动、拖拽、实时动画延迟；共享标题、圆角控制区、反馈和底部操作统一放大。
-- 保留 `windowSwipeToDismiss=false`，避免 2048、贪吃蛇、迷宫、俄罗斯方块、推箱子等横向手势被系统返回抢走。
-- 支持表冠/旋钮滚动备用 Canvas 列表；Compose 列表由 Wear Foundation 处理滚动。
-
-## 工程参数
-
-- `minSdk 30`
-- `targetSdk 35`
-- `compileSdk 35`
-- Android Gradle Plugin `8.6.1`
-- Gradle `8.7`
-- Kotlin `2.1.21`
-- JDK `17`
-- Wear Compose Material 3 / Foundation `1.6.2`
-- Activity Compose `1.10.1`
-- - Wear Remote Interactions `1.2.0`
-- 版本：`7.0` / `versionCode 7`
-
-## 编译
-
-Android Studio 打开工程根目录，Gradle Sync 后执行 **Build > Build APK(s)**。
-
-有 Gradle 8.7 和 Android SDK 35 的命令行环境可运行：
-
-```bash
-gradle assembleDebug --no-daemon --stacktrace
+Grouped short games
+├── MicroGameView.java
+├── PuzzleMiniView.java
+├── ClassicMiniGameView.java
+├── ExpansionGameView.java
+└── V8MiniGameView.java
 ```
 
-Debug APK 默认位于：`app/build/outputs/apk/debug/app-debug.apk`。
+## 存档与战绩
 
-`.github/workflows/android.yml` 已同步为 JDK 17 + Gradle 8.7 + Android SDK 35，可直接构建并上传 debug APK artifact。
+`GameSaveManager` 使用版本化单槽结构：`save_version / game_id(last_mode) / timestamp / payload / save_ai`。v7.x 旧格式由 `LegacySaveMigrator` 兼容。Tetris v4 存档通过 `TetrisStateCodec` 保存完整状态；棋盘 Engine 均有序列化/恢复测试。
+
+`GameStats` 统一记录游玩次数、胜/负、连续纪录、总游戏时间、最近成绩与 best/lower-best 指标。不同游戏在 UI 中只显示有意义的最佳指标。
+
+## 性能策略
+
+- 实时游戏使用 VSYNC 或受控帧调度；省电模式将高频刷新降至约 30Hz。
+- 静态棋盘不持续刷新。
+- 手机反馈等非首屏能力按需创建。
+- Release 开启 R8 + `shrinkResources`。
+- 保留 `baseline-prof.txt`，覆盖启动关键 App 类；`profileinstaller 1.4.1` 用于 release 安装。
+
+## 构建环境
+
+推荐并由 CI 固定：
+
+- JDK 17
+- Gradle 8.7
+- Android Gradle Plugin 8.6.1
+- compileSdk / targetSdk 35，minSdk 30
+- Kotlin 2.1.21
+- Wear Compose Material 3 / Foundation 1.6.2
+- Android Build Tools 35.0.0
+
+本项目原始压缩包不包含 Gradle Wrapper，因此 GitHub Actions 使用 `gradle/actions/setup-gradle` 固定 Gradle 8.7。Android Studio 导入后也可使用本机兼容 Gradle 8.7 构建。
+
+```bash
+gradle lintRelease testReleaseUnitTest assembleRelease --no-daemon
+```
+
+Release APK：`app/build/outputs/apk/release/app-release.apk`。
+
+## 自动检查
+
+见 `VALIDATION.md`。项目内包含 JUnit/Kotlin 单测：规则/Engine round-trip、非法 payload、首击安全、v7 推箱子几何兼容、Tetris 完整状态 codec、v7 mode ID 锁定、旧存档迁移、81 款 Catalog/路由唯一性。当前交付环境实跑 28 个 Java + 2 个 Kotlin 测试全部通过；CI 在有 Android SDK 的标准环境中执行 Lint、Unit Test、Release/R8 构建并上传 APK。

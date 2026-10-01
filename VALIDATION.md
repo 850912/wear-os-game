@@ -1,54 +1,41 @@
-# v7.0 Validation Notes
+# v8.0.0 最终验收记录
 
-当前交付环境完成的检查：
+## 当前交付环境已实际执行并通过
 
-- Compose 主入口统计为 30 款且 mode ID 无重复：棋盘 6、益智 8、街机 9、轻松 7。
-- 30/30 主入口均能在 `GameHubView` 找到绘制分发与 reset 分发。
-- 17 个标记为可恢复的游戏均接入 Java `canPersistMode` 存档层。
-- `GameHubView.java` 与 `MainActivity.kt` 的花括号结构平衡。
-- 原始压缩包与当前 `Game2048Engine.java` SHA-256 一致：`8d204750c65c12344ba27de9ec6a4d1c8fb31a2b97734c9b6208ec981c2cf990`。
-- 新旧备用菜单数组均为 30 个游戏 + 3 个工具项，标题 / 副标题 / 分类 / mode 数量一致。
-- 数独输入、清除、冲突检测与完成检测路径已接全。
-- 新增 8 款主入口游戏均为代码绘制，无外部图片依赖。
-- GitHub Actions 与 Termux 推送脚本均已同步 Android SDK 35 + Gradle 8.7。
-- JDK 17 已独立编译通过 `Game2048Engine.java` 与 `XiangqiEngine.java`。
-- Manifest 与全部 Android 资源 XML 均已通过 XML 解析检查。
-- `termux_push_build.sh` 已通过 `bash -n` 语法检查。
-- 除 2048 外的 Canvas 游戏共享标题/提示字号已放大；2048 保持原有标题字号与核心引擎。
-- 参考 Google Wear OS API 文档核对了 `AppScaffold`、`ScreenScaffold`、`TransformingLazyColumn`、`SurfaceTransformation`、`rememberTransformationSpec`、`transformedHeight` 与动态配色的用法。
+- [x] 全部 Java 主源码：`javac --release 17 -Xlint:all -Werror`，**0 errors / 0 warnings**。
+- [x] Java 测试源码：`javac --release 17 -Xlint:all -Werror`，**0 errors / 0 warnings**。
+- [x] Java 项目单测：**28 passed / 0 failed**。
+- [x] Kotlin Catalog/路由单测：**2 passed / 0 failed**。
+- [x] Engine round-trip：2048、象棋、五子棋、四子棋、黑白棋、数独、扫雷、迷宫、推箱子。
+- [x] 规则检查：五子连线、四子连线、数独固定格、扫雷首击安全、推箱子 v7 几何。
+- [x] `TetrisStateCodec` v4：完整状态 round-trip / corruption rejection。
+- [x] `GameSaveManager`：版本号、payload、时间戳、按 game id 清理行为。
+- [x] v7.4 → v8 存档迁移：五子棋、四子棋、黑白棋、数独、扫雷、迷宫、推箱子均可转成新 Engine payload 并恢复。
+- [x] v7.4 mode ID 兼容：核心 1–40（保留历史空洞）以及 Micro 41–52、Puzzle 53–60 由 `GameModesCompatibilityTest` 锁定。
+- [x] `GameCatalog.kt`：**81 games / 6 categories**，mode/title 唯一、分类有效且非空。
+- [x] 81 款游戏每款恰好命中一个运行 View 路由；无旧 Hub fallback。
+- [x] `GameHubView.java` 已从运行源码删除。
+- [x] Manifest + **6 个资源 XML** 全部可解析；**11 个 PNG** 均通过图像完整性检查。
+- [x] **90 个**文本/配置文件通过 UTF-8 与 NUL 字节检查。
+- [x] `termux_push_build.sh` 通过 `bash -n` 语法检查。
+- [x] GitHub Actions YAML 可解析，并包含 `lintRelease / testReleaseUnitTest / assembleRelease`。
+- [x] 配置一致性：v8.0.0 / versionCode 20、compile/target SDK 35、R8 + shrinkResources、baselineprofile module。
 
-限制：当前容器没有 Android SDK / Gradle，本地无法执行真实 `assembleDebug`。`javac` 检查会因缺少 Android 类库而产生依赖解析错误，因此本交付不冒充“已本机编译成功”。仓库 CI 已配置真实 Android SDK 35 构建，可在 GitHub Actions 或 Android Studio 中完成最终 APK 编译。
+## 联网核对的官方工具链 / API
 
-建议设备回归矩阵：
+- Wear Compose **1.6.2** 是当前稳定 1.6 版本，官方建议 Wear UI 使用 Compose Material 3。
+- Android Gradle Plugin **8.6.x** 支持 API 35；对应 Gradle **8.7**、JDK **17**。
+- Baseline Profile 使用 `com.android.test` producer module、`targetProjectPath ':app'`、应用侧 `baselineProfile project(':baselineprofile')`，与 Android 官方当前做法一致。
+- 当前使用的 `TransformingLazyColumn`、触控/旋钮 snap、`SurfaceTransformation`、`Card` long-click、`ScreenScaffold + EdgeButton` 等均属于 Wear Compose Material 3 / Foundation 的正式 API。
 
-1. 320×320、384×384、454×454 圆屏；典型方屏 / 矩形 Wear OS 模拟器。
-2. 首页、四个分类、模式选择、工具、战绩的首尾滚动与表冠滚动。
-3. 30 款游戏逐一进入、重开、退出；验证第一次“重开”只提示，第二次才执行。
-4. 数独：填错冲突、修改、清除、完成；推箱子各关滑动边界。
-5. 五子棋 / 井字棋 / 四子棋 / 黑白棋单人 AI 与双人模式。
-6. 17 款可恢复游戏分别中途退到首页、切后台、重新启动后继续。
-7. 2048 手势、得分、合并、存档与原版行为回归，重点确认核心引擎未被替换。
+## 当前环境无法诚实替代的最终 Android 工具链验收
 
-## 2026-09-29 build hotfix
-The uploaded CI failure was caused by AGP 8.13.2 running under Gradle 8.7. This revision aligns the project to the observed runner instead of requiring a newer global Gradle installation:
-- Gradle 8.7
-- AGP 8.6.1
-- Kotlin 2.1.21
-- compileSdk / targetSdk 35
-- Wear Compose Material 3 / Foundation 1.6.2
-- Activity Compose 1.10.1
+当前沙箱没有 Android SDK、Gradle 安装或 Android Gradle Plugin 依赖缓存，shell 网络也无法解析外部主机，因此无法在本机真正执行：
 
-This keeps Material 3 Expressive while removing the incompatible 8.13.x / 1.7.x build-system floor.
+- [ ] `gradle lintRelease`
+- [ ] `gradle testReleaseUnitTest`
+- [ ] `gradle assembleRelease`（AAPT2 / D8 / R8 / shrinkResources）
+- [ ] Wear OS 模拟器/真机圆屏、旋钮、触摸、生命周期回归
+- [ ] Baseline Profile 采集与冷启动 Macrobenchmark
 
-## v7.0.2 性能与“支持作者”补丁
-
-- 恢复「工具与关于 → 支持作者」入口，并使用用户提供的微信赞赏码图片。
-- 去除首页/分类卡片的 `SurfaceTransformation` 与 `transformedHeight`，保留 Wear Material 3 卡片样式与 Wear 专用滚动容器，降低滚动时的实时形变开销。
-- `dynamicColorScheme` 改为 `remember` 缓存，避免不必要的重复计算。
-- `GameHubView` 构造阶段不再 `resetAll()`：进入某个游戏时只初始化当前游戏，避免每次启动都生成全部棋盘、迷宫、数独等状态。
-- 赞赏码 Bitmap 改为按需加载，不再在每次进入任意游戏时解码。
-- 除 2048 外，连续 Canvas 动画统一限制约 30 FPS，以降低 Wear OS 上 CPU/GPU 占用与热降频；2048 动画刷新逻辑保持原样。
-- `KEEP_SCREEN_ON` 仅在实际游戏页启用，不再覆盖整个 App。
-- Manifest 明确启用硬件加速。
-- XML 解析通过；Java 核心 `Game2048Engine` / `XiangqiEngine` 编译检查通过；Kotlin/Java 结构平衡检查通过。
-- `Game2048Engine.java` SHA-256 仍为 `8d204750c65c12344ba27de9ec6a4d1c8fb31a2b97734c9b6208ec981c2cf990`，与 v7.0.1 完全一致。
+项目已在 `.github/workflows/android.yml` 固定 JDK 17 / Gradle 8.7 / SDK 35，并配置上述 Lint、单测和 Release APK 构建。真实 Android 工具链成功后应作为最终 APK 验收，不用静态检查冒充 APK 构建。
