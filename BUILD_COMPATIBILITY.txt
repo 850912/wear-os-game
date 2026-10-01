@@ -7,7 +7,7 @@ JDK                   : 17
 compileSdk            : 35
 targetSdk             : 35
 minSdk                : 30
-Wear Compose          : 1.7.0 (Material 3 / Foundation)
+Wear Compose          : 1.6.2 (Material 3 / Foundation)
 Activity Compose      : 1.10.1
 Baseline/Profile      : androidx.baselineprofile 1.4.1 / profileinstaller 1.4.1
 Android Build Tools   : 35.0.0
@@ -15,6 +15,6 @@ Android Build Tools   : 35.0.0
 Compatibility rationale:
 - AGP 8.6.x + Gradle 8.7 + JDK 17 is the fixed v8 toolchain used by this project.
 - compileSdk / targetSdk 35 matches the Wear OS 5.1 / Android 15 base used by the release emulator job.
-- Wear Compose Material 3 / Foundation has been updated to stable 1.7.0.
+- Wear Compose Material 3 / Foundation has been updated to stable 1.6.2.
 - Baseline Profile producer runs against a connected Wear OS emulator in CI before Release assembly.
 - Store signing is environment/secret driven; local sideload builds may fall back to the debug key.

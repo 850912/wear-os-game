@@ -98,7 +98,7 @@ Grouped short games
 - Android Gradle Plugin 8.6.1
 - compileSdk / targetSdk 35，minSdk 30
 - Kotlin 2.1.21
-- Wear Compose Material 3 / Foundation 1.7.0
+- Wear Compose Material 3 / Foundation 1.6.2
 - Android Build Tools 35.0.0
 
 本项目使用 GitHub Actions 的 `gradle/actions/setup-gradle` 固定 Gradle 8.7。Baseline Profile 由 CI 的 Wear OS 5.1 模拟器采集。

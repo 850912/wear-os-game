@@ -12,7 +12,7 @@
 6. Baseline Profile：producer journey 修正为兼容 Canvas 游戏；CI 使用 Wear OS 5.1 emulator 执行 profile 生成再构建 Release。
 7. CI/Termux：`termux_push_build.sh` 不再覆盖成缩水 workflow；两处 workflow 同步包含 Debug、Lint、Unit Test、Baseline Profile、Release/R8。
 8. 发布签名：支持正式 keystore 环境变量 / GitHub Secrets；未配置时仅用于侧载的 Release 可回退 debug key；keystore 文件已 gitignore。
-9. Wear Compose Material 3 / Foundation 更新到 1.7.0 stable。
+9. Wear Compose Material 3 / Foundation 更新到 1.6.2 stable。
 
 ## 当前包实际验证
 

@@ -11,7 +11,7 @@ GitHub Actions 构建说明（历史说明 + v8.0.1 当前状态）
 - Android Gradle Plugin：8.6.1
 - Kotlin：2.1.21
 - JDK：17
-- Wear Compose Material 3 / Foundation：1.7.0
+- Wear Compose Material 3 / Foundation：1.6.2
 
 当前 workflow 不安装已废弃的 legacy `tools` 包，只使用 GitHub Ubuntu runner
 现有的 sdkmanager 安装 platform-tools、platforms;android-35、build-tools;35.0.0。

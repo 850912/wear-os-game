@@ -14,7 +14,7 @@
 - Runner 支持落地跳跃与空中第二次修正；Snake 增加吃食物 squash 与死亡波纹；Flappy/Runner/Snake/Pong/Lane Dodge 接入开始倒计时与得分反馈。
 - Tetris HOLD/暂停逻辑触控目标扩为至少 48dp，并记录最高等级/最多消行。
 - `GameStats` 增加 draw 与命名扩展指标；Reversi 和棋从错误的 win 修正为 draw；战绩页对 Tetris、Snake、Flappy、棋类显示专属字段。
-- Wear Compose Material 3 / Foundation 更新为稳定版 1.7.0。
+- Wear Compose Material 3 / Foundation 更新为稳定版 1.6.2。
 - CI 分成 quality 与 baseline-profile-release 两阶段；Release 阶段在 Wear OS 5.1 emulator 采集 Baseline Profile 后执行 R8 Release 构建。
 - `termux_push_build.sh` 内置 workflow 与仓库 workflow 完全同步，不再删除 lint/debug/baseline 步骤。
 - Release signing 支持环境变量 / GitHub Secrets；`.jks/.keystore` 被 gitignore。

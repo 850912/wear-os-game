@@ -11,7 +11,7 @@ PASS  Runner second-air correction; Snake squash/death ripple; common 3-2-1-GO a
 PASS  Tetris logical side-control touch targets >=48dp
 PASS  Reversi draw is recorded as draw, not win
 PASS  Game-specific records: Tetris level/lines, Snake length, Flappy pipes
-PASS  Wear Compose Material 3/Foundation 1.7.0
+PASS  Wear Compose Material 3/Foundation 1.6.2
 PASS  Baseline Profile generator and Wear OS emulator CI path configured
 PASS  Termux workflow writer mirrors repository workflow
 PASS  Optional production signing via environment/GitHub Secrets; keystores ignored

@@ -69,12 +69,24 @@ baselineProfile {
     saveInSrc true
 }
 
+// Keep the complete Wear Compose family on the AGP 8.6.1 / compileSdk 35 compatible line.
+// A transitive dependency can otherwise upgrade these modules to 1.7.x, whose AAR metadata
+// requires compileSdk 37 and Android Gradle Plugin 9.1+.
+configurations.configureEach {
+    resolutionStrategy {
+        force 'androidx.wear.compose:compose-material3:1.6.2'
+        force 'androidx.wear.compose:compose-foundation:1.6.2'
+        force 'androidx.wear.compose:compose-material-core:1.6.2'
+    }
+}
+
 dependencies {
     baselineProfile project(':baselineprofile')
     testImplementation "junit:junit:4.13.2"
     implementation "androidx.profileinstaller:profileinstaller:1.4.1"
     implementation "androidx.activity:activity-compose:1.10.1"
-    implementation "androidx.wear.compose:compose-material3:1.7.0"
-    implementation "androidx.wear.compose:compose-foundation:1.7.0"
+    implementation "androidx.wear.compose:compose-material3:1.6.2"
+    implementation "androidx.wear.compose:compose-foundation:1.6.2"
+    implementation "androidx.wear.compose:compose-material-core:1.6.2"
     implementation "androidx.wear:wear-remote-interactions:1.2.0"
 }
