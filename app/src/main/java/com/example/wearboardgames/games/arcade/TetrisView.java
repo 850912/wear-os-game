@@ -32,6 +32,12 @@ public final class TetrisView extends BaseGameView {
     private long nextTick, spawnAnimStart, lineFlashUntil, pieceMoveAnimStart;
     private float pieceMoveFromY;
     private boolean over, paused, holdUsed;
+    private final RectF holdRect = new RectF();
+    private final RectF nextRect = new RectF();
+    private final RectF pauseRect = new RectF();
+    private final RectF cellRect = new RectF();
+    private final RectF frameRect = new RectF();
+    private boolean sideControlGesture;
 
     public TetrisView(Context context) { super(context); }
     public static boolean supportsMode(int mode) { return mode == MODE; }
@@ -44,6 +50,7 @@ public final class TetrisView extends BaseGameView {
         nextType = -1;
         holdType = -1;
         over = paused = holdUsed = false;
+        sideControlGesture = false;
         lineFlashUntil = 0;
         spawnPiece();
     }
@@ -59,7 +66,7 @@ public final class TetrisView extends BaseGameView {
         float bw = cell * W, bh = cell * H;
         float left = getWidth() / 2f - bw / 2f;
         float top = area.top + Math.max(0, (area.height() - bh) * .30f);
-        RectF frame = new RectF(left - cell * .30f, top - cell * .22f, left + bw + cell * .30f, top + bh + cell * .22f);
+        frameRect.set(left - cell * .30f, top - cell * .22f, left + bw + cell * .30f, top + bh + cell * .22f); RectF frame = frameRect;
         p.setColor(Color.rgb(20, 24, 31));
         c.drawRoundRect(frame, cell * .65f, cell * .65f, p);
         drawSidePanel(c, frame, cell);
@@ -108,15 +115,16 @@ public final class TetrisView extends BaseGameView {
     private void drawSidePanel(Canvas c, RectF frame, float cell) {
         float chipW = Math.max(dp(34), Math.min(s()*.18f, frame.left - dp(8)));
         float chipH = Math.max(dp(42), s()*.16f);
-        RectF hold = new RectF(dp(3), frame.top + frame.height()*.18f, dp(3)+chipW, frame.top + frame.height()*.18f+chipH);
-        RectF next = new RectF(getWidth()-dp(3)-chipW, frame.top + frame.height()*.18f, getWidth()-dp(3), frame.top + frame.height()*.18f+chipH);
-        RectF pause = new RectF(getWidth()-dp(3)-chipW, next.bottom+dp(6), getWidth()-dp(3), next.bottom+dp(6)+dp(34));
-        p.setColor(SURFACE_HIGH); c.drawRoundRect(hold, dp(10), dp(10), p); c.drawRoundRect(next, dp(10), dp(10), p); c.drawRoundRect(pause, dp(10), dp(10), p);
-        text(c, "HOLD", hold.centerX(), hold.top+dp(12), s()*.016f, MUTED, true, Paint.Align.CENTER);
-        text(c, "NEXT", next.centerX(), next.top+dp(12), s()*.016f, MUTED, true, Paint.Align.CENTER);
-        text(c, paused ? "继续" : "暂停", pause.centerX(), pause.centerY()+s()*.008f, s()*.019f, TEXT, true, Paint.Align.CENTER);
-        if (holdType >= 0) drawMini(c, holdType, hold.centerX(), hold.centerY()+dp(6), Math.min(cell*.55f, dp(7)));
-        if (nextType >= 0) drawMini(c, nextType, next.centerX(), next.centerY()+dp(6), Math.min(cell*.55f, dp(7)));
+        holdRect.set(dp(3), frame.top + frame.height()*.18f, dp(3)+chipW, frame.top + frame.height()*.18f+chipH);
+        nextRect.set(getWidth()-dp(3)-chipW, frame.top + frame.height()*.18f, getWidth()-dp(3), frame.top + frame.height()*.18f+chipH);
+        pauseRect.set(getWidth()-dp(3)-chipW, nextRect.bottom+dp(6), getWidth()-dp(3), nextRect.bottom+dp(6)+dp(48));
+        p.setColor(SURFACE_HIGH); c.drawRoundRect(holdRect, dp(10), dp(10), p); c.drawRoundRect(nextRect, dp(10), dp(10), p);
+        p.setColor(paused ? Color.rgb(74, 112, 91) : SURFACE_HIGH); c.drawRoundRect(pauseRect, dp(10), dp(10), p);
+        text(c, "HOLD", holdRect.centerX(), holdRect.top+dp(12), s()*.016f, MUTED, true, Paint.Align.CENTER);
+        text(c, "NEXT", nextRect.centerX(), nextRect.top+dp(12), s()*.016f, MUTED, true, Paint.Align.CENTER);
+        text(c, paused ? "继续" : "暂停", pauseRect.centerX(), pauseRect.centerY()+s()*.008f, s()*.019f, TEXT, true, Paint.Align.CENTER);
+        if (holdType >= 0) drawMini(c, holdType, holdRect.centerX(), holdRect.centerY()+dp(6), Math.min(cell*.55f, dp(7)));
+        if (nextType >= 0) drawMini(c, nextType, nextRect.centerX(), nextRect.centerY()+dp(6), Math.min(cell*.55f, dp(7)));
         if (combo > 0) text(c, "COMBO ×"+(combo+1), frame.centerX(), frame.top-dp(5), s()*.017f, SECONDARY, true, Paint.Align.CENTER);
     }
 
@@ -125,7 +133,8 @@ public final class TetrisView extends BaseGameView {
         float left = cx-mini*2, top = cy-mini*2;
         for(int y=0;y<4;y++) for(int x=0;x<4;x++) if(maskCell(mask,x,y)) {
             p.setColor(COLORS[pieceType+1]);
-            c.drawRoundRect(new RectF(left+x*mini+1, top+y*mini+1, left+(x+1)*mini-1, top+(y+1)*mini-1), mini*.18f, mini*.18f, p);
+            cellRect.set(left+x*mini+1, top+y*mini+1, left+(x+1)*mini-1, top+(y+1)*mini-1);
+            c.drawRoundRect(cellRect, mini*.18f, mini*.18f, p);
         }
     }
 
@@ -140,8 +149,14 @@ public final class TetrisView extends BaseGameView {
     private void drawCell(Canvas c, float l, float t, float cell, int color, float scale) {
         float inset = Math.max(1f, cell * (.075f + (1f - scale) * .30f));
         float cx = l + cell/2f, cy = t + cell/2f, half = (cell/2f - inset) * scale;
+        cellRect.set(cx-half, cy-half, cx+half, cy+half);
         p.setColor(color);
-        c.drawRoundRect(new RectF(cx-half, cy-half, cx+half, cy+half), cell*.16f, cell*.16f, p);
+        c.drawRoundRect(cellRect, cell*.16f, cell*.16f, p);
+        if (richEffectsEnabled() && Color.alpha(color) > 100) {
+            p.setColor(Color.argb(58, 255, 255, 255));
+            cellRect.set(cx-half+cell*.09f, cy-half+cell*.08f, cx+half-cell*.09f, cy-half+cell*.18f);
+            c.drawRoundRect(cellRect, cell*.06f, cell*.06f, p);
+        }
     }
 
     private boolean maskCell(int mask, int x, int y) {
@@ -174,6 +189,7 @@ public final class TetrisView extends BaseGameView {
         spawnAnimStart = now();
         if (!fits(pieceX, pieceY, rotation)) {
             over = true;
+            GameStats.recordMaxMetric(prefs,gameMode(),"level",lines / 10 + 1); GameStats.recordMaxMetric(prefs,gameMode(),"lines",lines);
             finishRound(-1, "堆到顶部了", "得分 " + score + " · 消除 " + lines + " 行", score);
         }
     }
@@ -220,7 +236,11 @@ public final class TetrisView extends BaseGameView {
             combo++;
             int level = lines / 10 + 1;
             lines += cleared;
-            score += new int[]{0,100,300,500,800}[cleared] * level + Math.max(0, combo) * 50;
+            int gained = new int[]{0,100,300,500,800}[cleared] * level + Math.max(0, combo) * 50;
+            score += gained;
+            showScorePopup(combo > 0 ? "+" + gained + " · COMBO ×" + (combo + 1) : "+" + gained);
+            GameStats.recordMaxMetric(prefs,gameMode(),"level",lines / 10 + 1);
+            GameStats.recordMaxMetric(prefs,gameMode(),"lines",lines);
             lineFlashUntil = now()+180;
             haptic(cleared == 4 ? HapticFeedbackConstants.LONG_PRESS : HapticFeedbackConstants.CONFIRM);
             sound(cleared >= 2 ? SoundManager.CLEAR : SoundManager.SCORE);
@@ -242,7 +262,7 @@ public final class TetrisView extends BaseGameView {
     }
 
     private void hardDrop() {
-        if (over) return;
+        if (over || paused) return;
         int dropped=0;
         while (fits(pieceX,pieceY+1,rotation)) { pieceY++; dropped++; }
         score += dropped * 2;
@@ -264,31 +284,39 @@ public final class TetrisView extends BaseGameView {
         } else {
             type = holdType; holdType = current; rotation=0; pieceX=3; pieceY=-1;
             spawnAnimStart=now(); nextTick=now()+dropDelay();
-            if(!fits(pieceX,pieceY,rotation)){over=true;finishRound(-1,"无法换入方块","得分 "+score,score);}
+            if(!fits(pieceX,pieceY,rotation)){over=true;GameStats.recordMaxMetric(prefs,gameMode(),"level",lines / 10 + 1); GameStats.recordMaxMetric(prefs,gameMode(),"lines",lines); finishRound(-1,"无法换入方块","得分 "+score,score);}
         }
         holdUsed = true;
         haptic(HapticFeedbackConstants.CLOCK_TICK);
     }
 
-    private boolean inHoldZone(float x,float y){return x<getWidth()*.23f && y>gameTop()+s()*.07f && y<gameTop()+s()*.35f;}
-    private boolean inPauseZone(float x,float y){return x>getWidth()*.77f && y>gameTop()+s()*.25f && y<gameTop()+s()*.52f;}
+    private boolean containsWithMinTouch(RectF r,float x,float y){
+        float min=dp(48), ex=Math.max(0f,(min-r.width())/2f), ey=Math.max(0f,(min-r.height())/2f);
+        return x>=r.left-ex&&x<=r.right+ex&&y>=r.top-ey&&y<=r.bottom+ey;
+    }
+    private boolean inHoldZone(float x,float y){return containsWithMinTouch(holdRect,x,y);}
+    private boolean inPauseZone(float x,float y){return containsWithMinTouch(pauseRect,x,y);}
+
+    @Override protected void onGameTouchDown(float x,float y){sideControlGesture=inPauseZone(x,y)||inHoldZone(x,y);}
 
     @Override protected void onGameTap(float x, float y) {
-        if (over) return;
-        if (inPauseZone(x,y)) { paused=!paused; nextTick=now()+dropDelay(); haptic(HapticFeedbackConstants.CLOCK_TICK); invalidate(); return; }
-        if (paused) return;
-        if (inHoldZone(x,y)) { holdPiece(); invalidate(); return; }
+        if (over) { sideControlGesture=false; return; }
+        if (inPauseZone(x,y)) { paused=!paused; nextTick=now()+dropDelay(); haptic(HapticFeedbackConstants.CLOCK_TICK); sideControlGesture=false; invalidate(); return; }
+        if (paused) { sideControlGesture=false; return; }
+        if (inHoldZone(x,y)) { holdPiece(); sideControlGesture=false; invalidate(); return; }
         boolean changed;
         if (x < getWidth()*.35f) changed = move(-1);
         else if (x > getWidth()*.65f) changed = move(1);
         else if (y > gameTop() + (gameBottom()-gameTop())*.62f) { softDrop(); changed=true; }
         else changed = rotate();
         if (changed) haptic(HapticFeedbackConstants.CLOCK_TICK);
+        sideControlGesture=false;
         invalidate();
     }
 
     @Override protected void onGameSwipe(float dx, float dy) {
-        if (over) return;
+        if (sideControlGesture) { sideControlGesture=false; return; }
+        if (over || paused) return;
         boolean changed=false;
         if (Math.abs(dy) > Math.abs(dx)) {
             if (dy > 0) { hardDrop(); changed=true; }

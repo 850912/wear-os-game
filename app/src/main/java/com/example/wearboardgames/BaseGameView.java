@@ -50,11 +50,27 @@ public abstract class BaseGameView extends View {
     private String resultSubtitle = "";
     private long resultShownAt;
 
+    // Shared short-game motion language from the v8 roadmap: 3-2-1-GO and score popups.
+    private long countdownStartedAt;
+    private long scorePopupStartedAt;
+    private String scorePopupText = "";
+
     private int pendingControl = -1; // 0 restart, 1 menu
     private long pendingControlUntil;
     private int pressedControl = -1;
     private float downX, downY;
     private boolean downInGame;
+
+    // Reused geometry: avoid allocating RectF arrays/objects during every watch frame.
+    private final RectF restartRect = new RectF();
+    private final RectF menuRect = new RectF();
+    private final RectF pillRect = new RectF();
+    private final RectF gamePanelRect = new RectF();
+    private final RectF resultRect = new RectF();
+    private int rectWidth = -1, rectHeight = -1;
+    private boolean rectLeftHanded;
+    private int releaseControl = -1;
+    private long releaseControlAt;
 
     public interface HostListener { void onExitToHub(); }
 
@@ -63,7 +79,7 @@ public abstract class BaseGameView extends View {
         super(context);
         density = context.getResources().getDisplayMetrics().density;
         roundScreen = context.getResources().getConfiguration().isScreenRound();
-        prefs = context.getSharedPreferences("wear_games", Context.MODE_PRIVATE);
+        prefs = AppSettings.prefs(context);
         p.setTypeface(NORMAL);
         setBackgroundColor(BG);
         setFocusable(true);
@@ -130,6 +146,8 @@ public abstract class BaseGameView extends View {
     protected final boolean animationsEnabled() { return AppSettings.animations(prefs); }
     protected final boolean powerSaver() { return AppSettings.saver(prefs); }
     protected final boolean smoothMode() { return AppSettings.smooth(prefs); }
+    protected final boolean moveConfirmationEnabled() { return AppSettings.moveConfirm(prefs); }
+    protected final boolean richEffectsEnabled() { return AppSettings.richEffects(prefs); }
     protected final boolean haptic(int constant) { return HapticsManager.perform(this, prefs, constant); }
     protected final void sound(int event) { SoundManager.play(prefs, event); }
 
@@ -138,31 +156,83 @@ public abstract class BaseGameView extends View {
     protected final float clamp(float value, float low, float high) { return Math.max(low, Math.min(high, value)); }
     protected final long now() { return SystemClock.elapsedRealtime(); }
 
+    /** Lightly overshooting easing used for watch-size press/result feedback. */
+    protected final float easeOutBack(float t) {
+        t = clamp(t, 0f, 1f);
+        float c1 = 1.55f, c3 = c1 + 1f, u = t - 1f;
+        return 1f + c3 * u * u * u + c1 * u * u;
+    }
+
+    protected final float easeOutCubic(float t) {
+        t = clamp(t, 0f, 1f);
+        float u = 1f - t;
+        return 1f - u * u * u;
+    }
+
     protected final void animateNext() {
         if (!isAttachedToWindow() || getWindowVisibility() != VISIBLE) return;
-        if (powerSaver()) postInvalidateDelayed(33);
-        else postInvalidateOnAnimation();
+        long delay = AppSettings.frameDelayMs(prefs);
+        if (delay <= 0L) postInvalidateOnAnimation();
+        else postInvalidateDelayed(delay);
     }
 
     protected final void invalidateSoon(long delayMs) {
         if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) postInvalidateDelayed(delayMs);
     }
 
+    /** Starts the common 3-2-1-GO overlay used by reaction/action games. */
+    protected final void beginStartCountdown() {
+        countdownStartedAt = animationsEnabled() ? now() : 0L;
+        if (countdownStartedAt != 0L) animateNext();
+    }
+
+    /** While true, gameplay physics should remain frozen although the running state may already be armed. */
+    protected final boolean startCountdownActive() {
+        return countdownStartedAt != 0L && now() - countdownStartedAt < 2600L;
+    }
+
+    /** Common score/combo feedback: +1, +10, COMBO xN, etc. */
+    protected final void showScorePopup(String label) {
+        if (!animationsEnabled() || label == null || label.isEmpty()) return;
+        scorePopupText = label;
+        scorePopupStartedAt = now();
+        animateNext();
+    }
+
     protected final float gameTop() { return s() * (roundScreen ? .115f : .095f); }
-    protected final float gameBottom() { return bottomRects()[0].top - Math.max(dp(5), s() * .012f); }
+    protected final float gameBottom() { updateBottomRects(); return restartRect.top - Math.max(dp(5), s() * .012f); }
 
     protected final RectF gamePanel(float sideInsetFraction) {
         float inset = getWidth() * sideInsetFraction;
-        return new RectF(inset, gameTop(), getWidth() - inset, gameBottom());
+        gamePanelRect.set(inset, gameTop(), getWidth() - inset, gameBottom());
+        return gamePanelRect;
     }
 
     @Override protected final void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        canvas.drawColor(BG);
+        drawBackground(canvas);
         drawGame(canvas);
+        drawStartCountdown(canvas);
+        drawScorePopup(canvas);
         drawBottomControls(canvas);
         drawResult(canvas);
     }
+
+    /** Shared chrome can be overridden by games with a canonical visual identity (for example 2048). */
+    protected void drawBackground(Canvas canvas) {
+        canvas.drawColor(BG);
+        if (richEffectsEnabled()) {
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.argb(34, 92, 145, 220));
+            canvas.drawCircle(getWidth() * .50f, -s() * .18f, s() * .72f, p);
+            p.setColor(Color.argb(20, 157, 106, 255));
+            canvas.drawCircle(getWidth() * .88f, getHeight() * .54f, s() * .55f, p);
+        }
+    }
+
+    protected int chromeSurfaceColor() { return SURFACE_HIGH; }
+    protected int chromeTextColor() { return TEXT; }
+    protected int chromeDangerColor() { return Color.rgb(187, 52, 61); }
 
     protected final void drawHeader(Canvas c, String title, String subtitle) {
         float size = s();
@@ -174,9 +244,17 @@ public abstract class BaseGameView extends View {
     }
 
     protected final void panel(Canvas c, RectF rect) {
+        float radius = Math.min(dp(22), rect.height() * .10f);
         p.setStyle(Paint.Style.FILL);
         p.setColor(SURFACE);
-        c.drawRoundRect(rect, Math.min(dp(22), rect.height() * .10f), Math.min(dp(22), rect.height() * .10f), p);
+        c.drawRoundRect(rect, radius, radius, p);
+        if (richEffectsEnabled()) {
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(Math.max(1f, dp(.7f)));
+            p.setColor(Color.argb(72, 255, 255, 255));
+            c.drawRoundRect(rect, radius, radius, p);
+            p.setStyle(Paint.Style.FILL);
+        }
     }
 
     protected final void text(Canvas c, String value, float x, float y, float size, int color, boolean bold, Paint.Align align) {
@@ -225,58 +303,75 @@ public abstract class BaseGameView extends View {
     protected final void prepareForFreshRound() {
         roundRecorded = false;
         resultVisible = false;
+        countdownStartedAt = 0L;
+        scorePopupStartedAt = 0L;
+        scorePopupText = "";
         pendingControl = -1;
     }
 
     private void clearTransientUi() {
         roundRecorded = false;
         resultVisible = false;
+        countdownStartedAt = 0L;
+        scorePopupStartedAt = 0L;
+        scorePopupText = "";
         pendingControl = -1;
         pressedControl = -1;
     }
 
-    private RectF[] bottomRects() {
+    private void updateBottomRects() {
+        boolean leftHanded = AppSettings.leftHanded(prefs);
+        if (rectWidth == getWidth() && rectHeight == getHeight() && rectLeftHanded == leftHanded) return;
+        rectWidth = getWidth(); rectHeight = getHeight(); rectLeftHanded = leftHanded;
         float size = s();
         float bottom = getHeight() - (roundScreen ? size * .052f : dp(3));
-        float h = Math.max(dp(40), Math.min(dp(44), size * .19f));
+        float h = Math.max(dp(48), Math.min(dp(52), size * .21f));
         float gap = Math.max(dp(6), size * .016f);
         float usable = Math.min(getWidth() * (roundScreen ? .74f : .90f), dp(320));
         float w = (usable - gap) / 2f;
         float left = (getWidth() - usable) / 2f;
-        RectF leftRect = new RectF(left, bottom - h, left + w, bottom);
-        RectF rightRect = new RectF(left + w + gap, bottom - h, left + w + gap + w, bottom);
-        // Left-handed mode puts the safer "menu" action on the thumb-side left and restart on the right.
-        return AppSettings.leftHanded(prefs) ? new RectF[]{rightRect, leftRect} : new RectF[]{leftRect, rightRect};
+        RectF physicalLeft = leftHanded ? menuRect : restartRect;
+        RectF physicalRight = leftHanded ? restartRect : menuRect;
+        physicalLeft.set(left, bottom - h, left + w, bottom);
+        physicalRight.set(left + w + gap, bottom - h, left + w + gap + w, bottom);
     }
 
     private int bottomControlAt(float x, float y) {
-        RectF[] rects = bottomRects();
-        if (rects[0].contains(x, y)) return 0;
-        if (rects[1].contains(x, y)) return 1;
+        updateBottomRects();
+        if (restartRect.contains(x, y)) return 0;
+        if (menuRect.contains(x, y)) return 1;
         return -1;
     }
 
     private void drawBottomControls(Canvas c) {
         long time = now();
         if (pendingControl >= 0 && time > pendingControlUntil) pendingControl = -1;
-        RectF[] rects = bottomRects();
-        drawPill(c, rects[0], pendingControl == 0 ? "确认重开" : "重开", pendingControl == 0, pressedControl == 0);
-        drawPill(c, rects[1], pendingControl == 1 ? "确认返回" : "菜单", pendingControl == 1, pressedControl == 1);
+        updateBottomRects();
+        drawPill(c, restartRect, 0, pendingControl == 0 ? "确认重开" : "重开", pendingControl == 0, pressedControl == 0);
+        drawPill(c, menuRect, 1, pendingControl == 1 ? "确认返回" : "菜单", pendingControl == 1, pressedControl == 1);
         if (pendingControl >= 0) invalidateSoon(150);
     }
 
-    private void drawPill(Canvas c, RectF rect, String label, boolean danger, boolean pressed) {
+    private void drawPill(Canvas c, RectF rect, int which, String label, boolean danger, boolean pressed) {
         p.setStyle(Paint.Style.FILL);
-        p.setColor(danger ? Color.rgb(187, 52, 61) : SURFACE_HIGH);
-        float scale = pressed && animationsEnabled() ? .96f : 1f;
-        RectF r = new RectF(rect);
+        p.setColor(danger ? chromeDangerColor() : chromeSurfaceColor());
+        float scale = 1f;
+        if (animationsEnabled()) {
+            if (pressed) scale = .935f;
+            else if (releaseControl == which) {
+                float t = clamp((now() - releaseControlAt) / 210f, 0f, 1f);
+                scale = .935f + .065f * easeOutBack(t);
+                if (t < 1f) animateNext(); else releaseControl = -1;
+            }
+        }
+        pillRect.set(rect);
         float dx = rect.width() * (1f - scale) / 2f, dy = rect.height() * (1f - scale) / 2f;
-        r.inset(dx, dy);
-        p.setAlpha(pressed ? 205 : 255);
-        c.drawRoundRect(r, r.height() / 2f, r.height() / 2f, p);
+        pillRect.inset(dx, dy);
+        p.setAlpha(pressed ? 210 : 255);
+        c.drawRoundRect(pillRect, pillRect.height() / 2f, pillRect.height() / 2f, p);
         p.setAlpha(255);
-        textFit(c, label, r.centerX(), r.centerY() + r.height() * .11f,
-                r.height() * .27f, TEXT, true, Paint.Align.CENTER, r.width() * .82f);
+        textFit(c, label, pillRect.centerX(), pillRect.centerY() + pillRect.height() * .11f,
+                pillRect.height() * .27f, chromeTextColor(), true, Paint.Align.CENTER, pillRect.width() * .82f);
     }
 
     private void handleBottomControl(int which) {
@@ -301,21 +396,55 @@ public abstract class BaseGameView extends View {
         invalidate();
     }
 
+
+    private void drawStartCountdown(Canvas c) {
+        if (countdownStartedAt == 0L) return;
+        long elapsed = now() - countdownStartedAt;
+        if (elapsed >= 2600L) { countdownStartedAt = 0L; return; }
+        int phase = (int)(elapsed / 650L);
+        String label = phase == 0 ? "3" : phase == 1 ? "2" : phase == 2 ? "1" : "GO";
+        float local = (elapsed % 650L) / 650f;
+        float alpha = 1f - clamp((local - .55f) / .45f, 0f, 1f);
+        float scale = .84f + .16f * easeOutBack(clamp(local * 1.7f, 0f, 1f));
+        p.setColor(Color.argb((int)(120 * alpha), 0, 0, 0));
+        c.drawCircle(getWidth()/2f, getHeight()/2f, s()*.17f, p);
+        p.setAlpha((int)(255 * alpha));
+        text(c, label, getWidth()/2f, getHeight()/2f + s()*.035f, s()*.13f*scale, TEXT, true, Paint.Align.CENTER);
+        p.setAlpha(255);
+        animateNext();
+    }
+
+    private void drawScorePopup(Canvas c) {
+        if (scorePopupStartedAt == 0L) return;
+        float t = clamp((now() - scorePopupStartedAt) / 720f, 0f, 1f);
+        if (t >= 1f) { scorePopupStartedAt = 0L; scorePopupText = ""; return; }
+        float y = gameTop() + s()*.16f - s()*.06f*easeOutCubic(t);
+        p.setAlpha((int)(255 * (1f-t)));
+        text(c, scorePopupText, getWidth()/2f, y, s()*.038f, GOOD, true, Paint.Align.CENTER);
+        p.setAlpha(255);
+        animateNext();
+    }
+
     private void drawResult(Canvas c) {
         if (!resultVisible) return;
-        float intro = animationsEnabled() ? clamp((now() - resultShownAt) / 220f, 0f, 1f) : 1f;
-        float eased = 1f - (1f - intro) * (1f - intro);
-        p.setColor(Color.argb((int)(205 * eased), 0, 0, 0));
+        float elapsed = now() - resultShownAt;
+        float dimIntro = animationsEnabled() ? clamp(elapsed / 180f, 0f, 1f) : 1f;
+        float intro = animationsEnabled() ? clamp((elapsed - 110f) / 280f, 0f, 1f) : 1f;
+        float eased = animationsEnabled() ? easeOutBack(intro) : 1f;
+        float alphaEase = easeOutCubic(dimIntro);
+        p.setColor(Color.argb((int)(205 * alphaEase), 0, 0, 0));
         c.drawRect(0, 0, getWidth(), getHeight(), p);
         float width = s() * (roundScreen ? .73f : .82f);
         float height = s() * .34f;
-        float scale = .90f + .10f * eased;
+        float scale = .88f + .12f * eased;
         float sw = width * scale, sh = height * scale;
-        RectF card = new RectF((getWidth() - sw) / 2f, (getHeight() - sh) / 2f,
+        resultRect.set((getWidth() - sw) / 2f, (getHeight() - sh) / 2f,
                 (getWidth() + sw) / 2f, (getHeight() + sh) / 2f);
+        RectF card = resultRect;
+        if (intro <= 0f) { animateNext(); return; }
         p.setColor(SURFACE_HIGH);
         c.drawRoundRect(card, Math.min(dp(24), sh * .18f), Math.min(dp(24), sh * .18f), p);
-        if (intro < 1f) animateNext();
+        if (intro < 1f || dimIntro < 1f) animateNext();
         int accent = resultKind > 0 ? GOOD : resultKind < 0 ? BAD : PRIMARY;
         textFit(c, resultTitle, card.centerX(), card.top + height * .34f, s() * .056f,
                 accent, true, Paint.Align.CENTER, width * .82f);
@@ -362,6 +491,7 @@ public abstract class BaseGameView extends View {
         if (control >= 0 && control == pressedControl) {
             pressedControl = -1;
             downInGame = false;
+            if (animationsEnabled()) { releaseControl = control; releaseControlAt = now(); }
             handleBottomControl(control);
             return true;
         }

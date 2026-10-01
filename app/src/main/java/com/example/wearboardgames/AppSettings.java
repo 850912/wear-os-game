@@ -11,6 +11,7 @@ public final class AppSettings {
     public static final String KEY_SOUND = "setting_sound";
     public static final String KEY_ANIMATIONS = "setting_animations";
     public static final String KEY_LEFT_HANDED = "setting_left_handed";
+    public static final String KEY_MOVE_CONFIRM = "setting_move_confirm";
     public static final String KEY_PERFORMANCE = "setting_performance"; // smooth | balanced | saver
 
     private AppSettings() {}
@@ -24,7 +25,24 @@ public final class AppSettings {
     public static boolean sound(SharedPreferences prefs) { return prefs.getBoolean(KEY_SOUND, false); }
     public static boolean animations(SharedPreferences prefs) { return prefs.getBoolean(KEY_ANIMATIONS, true); }
     public static boolean leftHanded(SharedPreferences prefs) { return prefs.getBoolean(KEY_LEFT_HANDED, false); }
+    public static boolean moveConfirm(SharedPreferences prefs) { return prefs.getBoolean(KEY_MOVE_CONFIRM, true); }
     public static String performance(SharedPreferences prefs) { return prefs.getString(KEY_PERFORMANCE, "balanced"); }
     public static boolean saver(SharedPreferences prefs) { return "saver".equals(performance(prefs)); }
     public static boolean smooth(SharedPreferences prefs) { return "smooth".equals(performance(prefs)); }
+
+    /**
+     * Delay used by continuously animated games. Smooth follows the display VSYNC; balanced
+     * intentionally reduces GPU/CPU pressure; saver is capped further for small watch batteries.
+     */
+    public static long frameDelayMs(SharedPreferences prefs) {
+        String mode = performance(prefs);
+        if ("smooth".equals(mode)) return 0L;
+        if ("saver".equals(mode)) return 50L;      // ~20 fps target
+        return 24L;                                // ~30-40 fps depending on display VSYNC
+    }
+
+    /** Expensive decorative effects are intentionally omitted in saver mode. */
+    public static boolean richEffects(SharedPreferences prefs) {
+        return animations(prefs) && !saver(prefs);
+    }
 }

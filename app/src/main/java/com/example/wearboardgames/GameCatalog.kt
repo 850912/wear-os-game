@@ -40,7 +40,7 @@ internal val games = listOf(
     GameDef(GameModes.BRICK_BREAKER, "砖块破坏", "拖动挡板 · 清空砖块", "街机经典", "▰"),
     GameDef(GameModes.BOUNCE, "弹球挑战", "拖动挡板 · 连续反弹", "街机经典", "●"),
     GameDef(PinballView.MODE, "迷你弹珠台", "双挡板 · 碰撞柱 · 三球挑战", "街机经典", "◉"),
-    GameDef(GameModes.RUNNER, "像素跑酷", "更高跳幅 · 柔和加速", "街机经典", "▰"),
+    GameDef(GameModes.RUNNER, "像素跑酷", "落地跳跃 · 空中二次修正", "街机经典", "▰"),
     GameDef(GameModes.DODGER, "三道闪避", "左右切道 · 躲开障碍", "街机经典", "↔"),
     GameDef(GameModes.STACK_TOWER, "叠塔", "移动后点击 · 登上 10 层", "街机经典", "▥"),
     GameDef(GameModes.ORBIT_TAP, "轨道点击", "追击旋转目标 · 20 秒", "街机经典", "◎"),

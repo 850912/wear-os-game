@@ -12,7 +12,7 @@
 ## 2. UI / UX
 - Compose 外壳统一 Wear Material 3；支持动态颜色。
 - 首页增加继续、最近、收藏、A-Z 查找、分类、战绩、设置。
-- BaseGameView 统一游戏 HUD、结果卡、40dp+ 控制、按压反馈、双确认重开/返回；系统 Back 同样要求二次确认。
+- BaseGameView 统一游戏 HUD、结果卡、至少 48dp 逻辑触控目标、按压反馈、双确认重开/返回；系统 Back 同样要求二次确认。
 - 左右手模式会交换底部系统控制位置；省电模式降低刷新频率。
 
 ## 3. 游戏专项
@@ -24,14 +24,14 @@
 ## 4. 统一能力
 - `GameSaveManager`：版本化存档与时间戳。
 - `LegacySaveMigrator`：兼容 v7 棋盘/谜题旧格式。
-- `GameStats`：次数、胜负、连续纪录、总时长、best/lower-best。
+- `GameStats`：次数、胜/负/和、连续纪录、总时长、best/lower-best，并支持 Tetris 等级/消行、Snake 长度、Flappy 管道数等专属指标。
 - `HapticsManager`：统一触觉总开关。
 - `SoundManager`：统一可选音效，默认关闭。
 - `AppSettings`：动态色、触觉、声音、动画、左右手、性能模式。
 
 ## 5. 性能
 - 实时游戏受控刷新；静态游戏不主动循环。
-- 省电模式约 30Hz，减少无意义帧。
+- 节能模式约 20fps（50ms 间隔）并减少装饰特效；均衡模式为 24ms 间隔，流畅模式跟随 VSYNC。
 - Release R8 + shrinkResources。
 - Baseline Profile 覆盖启动关键 App 类，保留 ProfileInstaller。
 
@@ -41,4 +41,4 @@
 - TetrisStateCodec 完整状态 round-trip / corruption rejection。
 - 目录路由：81 个唯一 mode，每款恰好一个路由；Kotlin 回归测试固化该约束。
 - v7.4 mode ID 兼容性与旧存档迁移均加入自动测试。
-- CI 固定 JDK 17 / Gradle 8.7 / SDK 35，并执行 lintRelease、testReleaseUnitTest、assembleRelease。
+- CI 固定 JDK 17 / Gradle 8.7 / SDK 35；先执行 assembleDebug、lintRelease、testReleaseUnitTest，再在 Wear OS API 35 模拟器上生成 Release Baseline Profile 并 assembleRelease。

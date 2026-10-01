@@ -72,6 +72,16 @@ public final class MicroGameView extends View {
     private int pendingControl = -1; // 0 restart, 1 menu
     private long pendingControlUntil;
     private int pressedControl = -1;
+    private final RectF restartRect = new RectF();
+    private final RectF menuRect = new RectF();
+    private final RectF boardRect = new RectF();
+    private final RectF scratchRect = new RectF();
+    private final RectF scratchRect2 = new RectF();
+    private final RectF resultRect = new RectF();
+    private final RectF pressedRect = new RectF();
+    private final RectF centerButtonRect = new RectF();
+    private int controlWidth = -1, controlHeight = -1;
+    private boolean controlLeftHanded;
 
     // Precision timer.
     private boolean precisionRunning, precisionDone;
@@ -151,7 +161,7 @@ public final class MicroGameView extends View {
         super(context);
         d = getResources().getDisplayMetrics().density;
         roundScreen = getResources().getConfiguration().isScreenRound();
-        prefs = context.getSharedPreferences("wear_games", Context.MODE_PRIVATE);
+        prefs = AppSettings.prefs(context);
         p.setTypeface(NORMAL);
         setBackgroundColor(BG);
         setFocusable(true);
@@ -176,12 +186,20 @@ public final class MicroGameView extends View {
     private float s() { return Math.min(getWidth(), getHeight()); }
     private float contentTop() { return s() * (roundScreen ? .155f : .13f); }
     private float contentBottom() { return getHeight() - dp(50); }
-    private void animateNext() { if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) { if(AppSettings.saver(prefs)) postInvalidateDelayed(33); else postInvalidateOnAnimation(); } }
+    private void animateNext() { if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) { long delay=AppSettings.frameDelayMs(prefs); if(delay<=0)postInvalidateOnAnimation(); else postInvalidateDelayed(delay); } }
     private void invalidateSoon(long delayMs) { if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) postInvalidateDelayed(delayMs); }
 
     @Override protected void onDraw(Canvas c) {
         super.onDraw(c);
         c.drawColor(BG);
+        if (AppSettings.richEffects(prefs)) {
+            float size = s();
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.argb(28, 82, 145, 220));
+            c.drawCircle(getWidth() * .50f, -size * .18f, size * .70f, p);
+            p.setColor(Color.argb(18, 157, 106, 255));
+            c.drawCircle(getWidth() * .90f, getHeight() * .55f, size * .52f, p);
+        }
         drawHeader(c);
         switch (mode) {
             case PRECISION_TIMER: drawPrecisionTimer(c); break;
@@ -253,14 +271,15 @@ public final class MicroGameView extends View {
     private RectF arcadeBoard() {
         float side = s() * (roundScreen ? .67f : .72f);
         float top = contentTop() + s()*.015f;
-        return new RectF((getWidth()-side)/2f, top, (getWidth()+side)/2f, Math.min(contentBottom()-dp(4), top+side));
+        boardRect.set((getWidth()-side)/2f, top, (getWidth()+side)/2f, Math.min(contentBottom()-dp(4), top+side));
+        return boardRect;
     }
 
     private void drawStarCatch(Canvas c) {
         RectF b=arcadeBoard(); panel(c,b); long now=SystemClock.elapsedRealtime();
         if(!catchOver&&catchRunning){float dt=Math.min(.035f,(now-catchLastTick)/1000f);catchLastTick=now;catchStarY+=catchStarSpeed*dt;if(catchStarY>b.bottom){catchMiss++;spawnCatchStar(b);}float basketY=b.bottom-dp(13);if(catchStarY+b.width()*.035f>=basketY-dp(5)&&catchStarY<=basketY+dp(8)&&Math.abs(catchStarX-catchBasketX)<b.width()*.12f){catchScore++;haptic(HapticFeedbackConstants.CLOCK_TICK);spawnCatchStar(b);}if(now>=catchDeadline){catchOver=true;catchRunning=false;finish(1,"时间到","接到 "+catchScore+" 颗星",catchScore);}else animateNext();}
         p.setColor(Color.rgb(255,214,92));c.drawCircle(catchStarX,catchStarY,b.width()*.035f,p);
-        p.setColor(PRIMARY);c.drawRoundRect(new RectF(catchBasketX-b.width()*.12f,b.bottom-dp(14),catchBasketX+b.width()*.12f,b.bottom-dp(5)),dp(6),dp(6),p);
+        p.setColor(PRIMARY);scratchRect.set(catchBasketX-b.width()*.12f,b.bottom-dp(14),catchBasketX+b.width()*.12f,b.bottom-dp(5));c.drawRoundRect(scratchRect,dp(6),dp(6),p);
         text(c,"★ "+catchScore+"   漏 "+catchMiss,getWidth()/2f,b.top+dp(18),s()*.034f,TEXT,true,Paint.Align.CENTER);
         if(!catchRunning&&!catchOver) text(c,"拖动开始",getWidth()/2f,b.centerY(),s()*.050f,MUTED,true,Paint.Align.CENTER);
     }
@@ -278,7 +297,7 @@ public final class MicroGameView extends View {
         RectF b=arcadeBoard();panel(c,b);long now=SystemClock.elapsedRealtime();
         if(landerRunning&&!landerOver){float dt=Math.min(.032f,(now-landerLastTick)/1000f);landerLastTick=now;float gravity=b.height()*.42f;float thrust=b.height()*.72f;landerVY+=(gravity-(landerThrust?thrust:0))*dt;landerVY=Math.max(-b.height()*.38f,Math.min(b.height()*.55f,landerVY));landerY+=landerVY*dt;if(landerY>=b.bottom-dp(21)){landerY=b.bottom-dp(21);landerOver=true;landerRunning=false;landerWon=Math.abs(landerVY)<b.height()*.18f;if(landerWon)finish(1,"着陆成功",String.format(java.util.Locale.US,"速度 %.0f",Math.abs(landerVY)),1000-(int)(Math.abs(landerVY)*3));else finish(-1,"着陆过快","落地速度太高",0);}else animateNext();}
         p.setColor(Color.rgb(95,103,118));c.drawRect(b.left,b.bottom-dp(9),b.right,b.bottom,p);
-        p.setColor(landerThrust?Color.rgb(255,180,76):PRIMARY);c.drawRoundRect(new RectF(landerX-dp(13),landerY-dp(10),landerX+dp(13),landerY+dp(10)),dp(5),dp(5),p);
+        p.setColor(landerThrust?Color.rgb(255,180,76):PRIMARY);scratchRect.set(landerX-dp(13),landerY-dp(10),landerX+dp(13),landerY+dp(10));c.drawRoundRect(scratchRect,dp(5),dp(5),p);
         if(landerThrust&&!landerOver){p.setColor(Color.rgb(255,151,65));c.drawCircle(landerX,landerY+dp(16),dp(5),p);}
         text(c,"速度 "+(int)Math.abs(landerVY),getWidth()/2f,b.top+dp(18),s()*.034f,TEXT,true,Paint.Align.CENTER);
         if(!landerRunning&&!landerOver)text(c,"按住屏幕点火",getWidth()/2f,b.centerY(),s()*.045f,MUTED,true,Paint.Align.CENTER);
@@ -302,29 +321,29 @@ public final class MicroGameView extends View {
     private void drawSpinLock(Canvas c) {
         RectF b=arcadeBoard();panel(c,b);long now=SystemClock.elapsedRealtime();
         if(!spinOver){float dt=Math.min(.035f,(now-spinLastTick)/1000f);spinLastTick=now;spinAngle=(spinAngle+spinSpeed*dt)%360f;if(spinRound>=8){spinOver=true;finish(1,"解锁完成","得分 "+spinScore,spinScore);}else animateNext();}
-        float cx=b.centerX(),cy=b.centerY()+dp(5),r=b.width()*.28f;p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(8));p.setColor(SURFACE_2);c.drawCircle(cx,cy,r,p);p.setColor(GOOD);RectF arc=new RectF(cx-r,cy-r,cx+r,cy+r);c.drawArc(arc,spinTarget-15,30,false,p);p.setStrokeWidth(dp(4));p.setColor(PRIMARY);double rad=Math.toRadians(spinAngle);c.drawLine(cx,cy,cx+(float)Math.cos(rad)*r,cy+(float)Math.sin(rad)*r,p);p.setStyle(Paint.Style.FILL);c.drawCircle(cx,cy,dp(7),p);
+        float cx=b.centerX(),cy=b.centerY()+dp(5),r=b.width()*.28f;p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(8));p.setColor(SURFACE_2);c.drawCircle(cx,cy,r,p);p.setColor(GOOD);scratchRect.set(cx-r,cy-r,cx+r,cy+r);RectF arc=scratchRect;c.drawArc(arc,spinTarget-15,30,false,p);p.setStrokeWidth(dp(4));p.setColor(PRIMARY);double rad=Math.toRadians(spinAngle);c.drawLine(cx,cy,cx+(float)Math.cos(rad)*r,cy+(float)Math.sin(rad)*r,p);p.setStyle(Paint.Style.FILL);c.drawCircle(cx,cy,dp(7),p);
         text(c,"锁芯 "+Math.min(8,spinRound+1)+" / 8   "+spinScore+" 分",getWidth()/2f,b.top+dp(18),s()*.032f,TEXT,true,Paint.Align.CENTER);
     }
 
     private void drawMemoryPath(Canvas c) {
         RectF b=arcadeBoard();panel(c,b);long now=SystemClock.elapsedRealtime();float gap=dp(7),cell=(b.width()-gap*4)/3f;int flash=-1;
         if(memoryShowing&&!memoryOver){long rel=now-memoryShowStart;int slot=(int)(rel/520);if(slot<memoryLength){if(rel%520<310)flash=memoryPath[slot];invalidateSoon(35);}else{memoryShowing=false;memoryInput=0;haptic(HapticFeedbackConstants.CLOCK_TICK);invalidate();}}
-        for(int i=0;i<9;i++){int row=i/3,col=i%3;RectF r=new RectF(b.left+gap+col*(cell+gap),b.top+dp(30)+row*(cell+gap),b.left+gap+col*(cell+gap)+cell,b.top+dp(30)+row*(cell+gap)+cell);p.setColor(i==flash?PRIMARY:SURFACE_2);c.drawRoundRect(r,dp(10),dp(10),p);}
+        for(int i=0;i<9;i++){int row=i/3,col=i%3;scratchRect.set(b.left+gap+col*(cell+gap),b.top+dp(30)+row*(cell+gap),b.left+gap+col*(cell+gap)+cell,b.top+dp(30)+row*(cell+gap)+cell);RectF r=scratchRect;p.setColor(i==flash?PRIMARY:SURFACE_2);c.drawRoundRect(r,dp(10),dp(10),p);}
         text(c,memoryShowing?"记住路径":"轮到你 · 长度 "+memoryLength,getWidth()/2f,b.top+dp(18),s()*.031f,memoryShowing?SECONDARY:TEXT,true,Paint.Align.CENTER);
     }
 
     private void drawNumberSort(Canvas c) {
         RectF b=arcadeBoard();panel(c,b);long now=SystemClock.elapsedRealtime();if(!sortOver&&now>=sortDeadline){sortOver=true;finish(1,"时间到","完成 "+sortScore+" 组",sortScore);}float w=b.width()*.24f,gap=b.width()*.045f,total=w*3+gap*2,left=b.centerX()-total/2f,y=b.centerY()-w/2f;
-        for(int i=0;i<3;i++){RectF r=new RectF(left+i*(w+gap),y,left+i*(w+gap)+w,y+w);p.setColor(sortUsed[i]?Color.rgb(52,72,66):SURFACE_2);c.drawRoundRect(r,dp(12),dp(12),p);text(c,String.valueOf(sortValues[i]),r.centerX(),r.centerY()+s()*.025f,s()*.065f,sortUsed[i]?MUTED:TEXT,true,Paint.Align.CENTER);}
+        for(int i=0;i<3;i++){scratchRect.set(left+i*(w+gap),y,left+i*(w+gap)+w,y+w);RectF r=scratchRect;p.setColor(sortUsed[i]?Color.rgb(52,72,66):SURFACE_2);c.drawRoundRect(r,dp(12),dp(12),p);text(c,String.valueOf(sortValues[i]),r.centerX(),r.centerY()+s()*.025f,s()*.065f,sortUsed[i]?MUTED:TEXT,true,Paint.Align.CENTER);}
         text(c,"完成 "+sortScore+" 组",getWidth()/2f,b.top+dp(20),s()*.034f,TEXT,true,Paint.Align.CENTER);if(!sortOver)invalidateSoon(180);
     }
 
     private void drawColorStroop(Canvas c) {
-        RectF b=arcadeBoard();panel(c,b);long now=SystemClock.elapsedRealtime();if(!stroopOver&&now>=stroopDeadline){stroopOver=true;finish(1,"挑战结束","答对 "+stroopScore+" / "+stroopRounds,stroopScore);}text(c,COLOR_NAMES[stroopWord],b.centerX(),b.top+b.height()*.31f,s()*.13f,COLOR_VALUES[stroopInk],true,Paint.Align.CENTER);float w=b.width()*.39f,h=b.height()*.16f;for(int i=0;i<4;i++){int row=i/2,col=i%2;RectF r=new RectF(b.left+b.width()*.08f+col*(w+b.width()*.06f),b.top+b.height()*.52f+row*(h+dp(6)),b.left+b.width()*.08f+col*(w+b.width()*.06f)+w,b.top+b.height()*.52f+row*(h+dp(6))+h);button(c,r,COLOR_NAMES[i],COLOR_VALUES[i],false);}if(!stroopOver)invalidateSoon(180);
+        RectF b=arcadeBoard();panel(c,b);long now=SystemClock.elapsedRealtime();if(!stroopOver&&now>=stroopDeadline){stroopOver=true;finish(1,"挑战结束","答对 "+stroopScore+" / "+stroopRounds,stroopScore);}text(c,COLOR_NAMES[stroopWord],b.centerX(),b.top+b.height()*.31f,s()*.13f,COLOR_VALUES[stroopInk],true,Paint.Align.CENTER);float w=b.width()*.39f,h=b.height()*.16f;for(int i=0;i<4;i++){int row=i/2,col=i%2;scratchRect.set(b.left+b.width()*.08f+col*(w+b.width()*.06f),b.top+b.height()*.52f+row*(h+dp(6)),b.left+b.width()*.08f+col*(w+b.width()*.06f)+w,b.top+b.height()*.52f+row*(h+dp(6))+h);RectF r=scratchRect;button(c,r,COLOR_NAMES[i],COLOR_VALUES[i],false);}if(!stroopOver)invalidateSoon(180);
     }
 
     private void drawOddEven(Canvas c) {
-        RectF b=arcadeBoard();panel(c,b);long now=SystemClock.elapsedRealtime();if(!oddEvenOver&&now>=oddEvenDeadline){oddEvenOver=true;finish(1,"时间到","答对 "+oddEvenScore+" / "+oddEvenRounds,oddEvenScore);}text(c,String.valueOf(oddEvenNumber),b.centerX(),b.top+b.height()*.37f,s()*.16f,PRIMARY,true,Paint.Align.CENTER);float w=b.width()*.36f,h=b.height()*.17f;RectF left=new RectF(b.left+b.width()*.09f,b.top+b.height()*.63f,b.left+b.width()*.09f+w,b.top+b.height()*.63f+h);RectF right=new RectF(b.right-b.width()*.09f-w,left.top,b.right-b.width()*.09f,left.bottom);button(c,left,"奇数",SECONDARY,false);button(c,right,"偶数",GOOD,false);if(!oddEvenOver)invalidateSoon(180);
+        RectF b=arcadeBoard();panel(c,b);long now=SystemClock.elapsedRealtime();if(!oddEvenOver&&now>=oddEvenDeadline){oddEvenOver=true;finish(1,"时间到","答对 "+oddEvenScore+" / "+oddEvenRounds,oddEvenScore);}text(c,String.valueOf(oddEvenNumber),b.centerX(),b.top+b.height()*.37f,s()*.16f,PRIMARY,true,Paint.Align.CENTER);float w=b.width()*.36f,h=b.height()*.17f;scratchRect.set(b.left+b.width()*.09f,b.top+b.height()*.63f,b.left+b.width()*.09f+w,b.top+b.height()*.63f+h);RectF left=scratchRect;scratchRect2.set(b.right-b.width()*.09f-w,left.top,b.right-b.width()*.09f,left.bottom);RectF right=scratchRect2;button(c,left,"奇数",SECONDARY,false);button(c,right,"偶数",GOOD,false);if(!oddEvenOver)invalidateSoon(180);
     }
 
     @Override public boolean onTouchEvent(MotionEvent e) {
@@ -385,18 +404,18 @@ public final class MicroGameView extends View {
     private void handleMemoryTap(float x,float y){if(memoryOver||memoryShowing)return;RectF b=arcadeBoard();float gap=dp(7),cell=(b.width()-gap*4)/3f,top=b.top+dp(30);int col=(int)((x-(b.left+gap))/(cell+gap)),row=(int)((y-top)/(cell+gap));if(col<0||col>2||row<0||row>2)return;float lx=(x-(b.left+gap))-col*(cell+gap),ly=(y-top)-row*(cell+gap);if(lx<0||ly<0||lx>cell||ly>cell)return;int idx=row*3+col;if(idx!=memoryPath[memoryInput]){memoryOver=true;haptic(HapticFeedbackConstants.REJECT);finish(-1,"路径错了","记到长度 "+memoryLength,Math.max(0,memoryLength-3));return;}memoryInput++;haptic(HapticFeedbackConstants.CLOCK_TICK);if(memoryInput>=memoryLength){if(memoryLength>=8){memoryOver=true;finish(1,"全部记住！","完成 8 格路径",8);}else{memoryLength++;memoryPath[memoryLength-1]=nextMemoryCell();memoryShowing=true;memoryShowStart=SystemClock.elapsedRealtime()+420;}}invalidate();}
     private int nextMemoryCell(){int next;do{next=random.nextInt(9);}while(memoryLength>1&&next==memoryPath[memoryLength-2]);return next;}
 
-    private void handleSortTap(float x,float y){if(sortOver)return;RectF b=arcadeBoard();float w=b.width()*.24f,gap=b.width()*.045f,total=w*3+gap*2,left=b.centerX()-total/2f,top=b.centerY()-w/2f;for(int i=0;i<3;i++){RectF r=new RectF(left+i*(w+gap),top,left+i*(w+gap)+w,top+w);if(r.contains(x,y)&&!sortUsed[i]){int min=Integer.MAX_VALUE,minIdx=-1;for(int j=0;j<3;j++)if(!sortUsed[j]&&sortValues[j]<min){min=sortValues[j];minIdx=j;}if(i==minIdx){sortUsed[i]=true;sortStep++;haptic(HapticFeedbackConstants.CLOCK_TICK);if(sortStep==3){sortScore++;sortRounds++;newSortRound();}}else{haptic(HapticFeedbackConstants.REJECT);sortRounds++;newSortRound();}invalidate();return;}}}
+    private void handleSortTap(float x,float y){if(sortOver)return;RectF b=arcadeBoard();float w=b.width()*.24f,gap=b.width()*.045f,total=w*3+gap*2,left=b.centerX()-total/2f,top=b.centerY()-w/2f;for(int i=0;i<3;i++){scratchRect.set(left+i*(w+gap),top,left+i*(w+gap)+w,top+w);RectF r=scratchRect;if(r.contains(x,y)&&!sortUsed[i]){int min=Integer.MAX_VALUE,minIdx=-1;for(int j=0;j<3;j++)if(!sortUsed[j]&&sortValues[j]<min){min=sortValues[j];minIdx=j;}if(i==minIdx){sortUsed[i]=true;sortStep++;haptic(HapticFeedbackConstants.CLOCK_TICK);if(sortStep==3){sortScore++;sortRounds++;newSortRound();}}else{haptic(HapticFeedbackConstants.REJECT);sortRounds++;newSortRound();}invalidate();return;}}}
     private void newSortRound(){sortStep=0;Arrays.fill(sortUsed,false);List<Integer> values=new ArrayList<>();while(values.size()<3){int v=10+random.nextInt(90);if(!values.contains(v))values.add(v);}Collections.shuffle(values,random);for(int i=0;i<3;i++)sortValues[i]=values.get(i);}
 
-    private void handleStroopTap(float x,float y){if(stroopOver)return;RectF b=arcadeBoard();float w=b.width()*.39f,h=b.height()*.16f;for(int i=0;i<4;i++){int row=i/2,col=i%2;RectF r=new RectF(b.left+b.width()*.08f+col*(w+b.width()*.06f),b.top+b.height()*.52f+row*(h+dp(6)),b.left+b.width()*.08f+col*(w+b.width()*.06f)+w,b.top+b.height()*.52f+row*(h+dp(6))+h);if(r.contains(x,y)){stroopRounds++;if(i==stroopInk){stroopScore++;haptic(HapticFeedbackConstants.CONFIRM);}else haptic(HapticFeedbackConstants.REJECT);newStroop();invalidate();return;}}}
+    private void handleStroopTap(float x,float y){if(stroopOver)return;RectF b=arcadeBoard();float w=b.width()*.39f,h=b.height()*.16f;for(int i=0;i<4;i++){int row=i/2,col=i%2;scratchRect.set(b.left+b.width()*.08f+col*(w+b.width()*.06f),b.top+b.height()*.52f+row*(h+dp(6)),b.left+b.width()*.08f+col*(w+b.width()*.06f)+w,b.top+b.height()*.52f+row*(h+dp(6))+h);RectF r=scratchRect;if(r.contains(x,y)){stroopRounds++;if(i==stroopInk){stroopScore++;haptic(HapticFeedbackConstants.CONFIRM);}else haptic(HapticFeedbackConstants.REJECT);newStroop();invalidate();return;}}}
     private void newStroop(){stroopWord=random.nextInt(4);do{stroopInk=random.nextInt(4);}while(random.nextBoolean()&&stroopInk==stroopWord);}
 
-    private void handleOddEvenTap(float x,float y){if(oddEvenOver)return;RectF b=arcadeBoard();float w=b.width()*.36f,h=b.height()*.17f;RectF left=new RectF(b.left+b.width()*.09f,b.top+b.height()*.63f,b.left+b.width()*.09f+w,b.top+b.height()*.63f+h);RectF right=new RectF(b.right-b.width()*.09f-w,left.top,b.right-b.width()*.09f,left.bottom);boolean answeredOdd=left.contains(x,y),answeredEven=right.contains(x,y);if(!answeredOdd&&!answeredEven)return;oddEvenRounds++;boolean isOdd=(oddEvenNumber&1)==1;if((answeredOdd&&isOdd)||(answeredEven&&!isOdd)){oddEvenScore++;haptic(HapticFeedbackConstants.CONFIRM);}else haptic(HapticFeedbackConstants.REJECT);oddEvenNumber=1+random.nextInt(99);invalidate();}
+    private void handleOddEvenTap(float x,float y){if(oddEvenOver)return;RectF b=arcadeBoard();float w=b.width()*.36f,h=b.height()*.17f;scratchRect.set(b.left+b.width()*.09f,b.top+b.height()*.63f,b.left+b.width()*.09f+w,b.top+b.height()*.63f+h);RectF left=scratchRect;scratchRect2.set(b.right-b.width()*.09f-w,left.top,b.right-b.width()*.09f,left.bottom);RectF right=scratchRect2;boolean answeredOdd=left.contains(x,y),answeredEven=right.contains(x,y);if(!answeredOdd&&!answeredEven)return;oddEvenRounds++;boolean isOdd=(oddEvenNumber&1)==1;if((answeredOdd&&isOdd)||(answeredEven&&!isOdd)){oddEvenScore++;haptic(HapticFeedbackConstants.CONFIRM);}else haptic(HapticFeedbackConstants.REJECT);oddEvenNumber=1+random.nextInt(99);invalidate();}
 
     private void handleBottomControl(int which){long now=SystemClock.elapsedRealtime();if(pendingControl==which&&now<=pendingControlUntil){pendingControl=-1;if(which==0){resetCurrent();}else if(hostListener!=null){hostListener.onExitToHub();}return;}pendingControl=which;pendingControlUntil=now+1400;haptic(HapticFeedbackConstants.CLOCK_TICK);invalidate();}
-    private int bottomControlAt(float x,float y){RectF[] r=bottomRects();if(r[0].contains(x,y))return 0;if(r[1].contains(x,y))return 1;return -1;}
-    private RectF[] bottomRects(){float h=dp(42),bottom=getHeight()-dp(3),gap=dp(7),w=Math.min(s()*.34f,(getWidth()-gap*3)/2f),cx=getWidth()/2f;return new RectF[]{new RectF(cx-gap/2-w,bottom-h,cx-gap/2,bottom),new RectF(cx+gap/2,bottom-h,cx+gap/2+w,bottom)};}
-    private void drawBottomControls(Canvas c){RectF[] rs=bottomRects();long now=SystemClock.elapsedRealtime();if(pendingControl>=0&&now>pendingControlUntil)pendingControl=-1;button(c,rs[0],pendingControl==0?"确认重开":"重开",pendingControl==0?BAD:SURFACE_2,pressedControl==0);button(c,rs[1],pendingControl==1?"确认返回":"菜单",pendingControl==1?BAD:SURFACE_2,pressedControl==1);if(pendingControl>=0&&now<=pendingControlUntil)invalidateSoon(180);}
+    private void updateBottomRects(){boolean left=AppSettings.leftHanded(prefs);if(controlWidth==getWidth()&&controlHeight==getHeight()&&controlLeftHanded==left)return;controlWidth=getWidth();controlHeight=getHeight();controlLeftHanded=left;float h=dp(42),bottom=getHeight()-dp(3),gap=dp(7),w=Math.min(s()*.34f,(getWidth()-gap*3)/2f),cx=getWidth()/2f;RectF l=left?menuRect:restartRect,r=left?restartRect:menuRect;l.set(cx-gap/2-w,bottom-h,cx-gap/2,bottom);r.set(cx+gap/2,bottom-h,cx+gap/2+w,bottom);}
+    private int bottomControlAt(float x,float y){updateBottomRects();if(restartRect.contains(x,y))return 0;if(menuRect.contains(x,y))return 1;return -1;}
+    private void drawBottomControls(Canvas c){updateBottomRects();long now=SystemClock.elapsedRealtime();if(pendingControl>=0&&now>pendingControlUntil)pendingControl=-1;button(c,restartRect,pendingControl==0?"确认重开":"重开",pendingControl==0?BAD:SURFACE_2,pressedControl==0);button(c,menuRect,pendingControl==1?"确认返回":"菜单",pendingControl==1?BAD:SURFACE_2,pressedControl==1);if(pendingControl>=0&&now<=pendingControlUntil)invalidateSoon(180);}
 
     private void resetCurrent(){resultVisible=false;roundRecorded=false;pendingControl=-1;long now=SystemClock.elapsedRealtime();switch(mode){
         case PRECISION_TIMER:precisionRunning=false;precisionDone=false;precisionStart=0;precisionElapsed=0;break;
@@ -418,9 +437,9 @@ public final class MicroGameView extends View {
 
     private boolean haptic(int constant){return HapticsManager.perform(this,prefs,constant);}
 
-    private void drawResult(Canvas c){if(!resultVisible)return;p.setColor(Color.argb(205,0,0,0));c.drawRect(0,0,getWidth(),getHeight(),p);float w=s()*(roundScreen ? .74f : .82f),h=s()*.36f;RectF r=new RectF((getWidth()-w)/2f,(getHeight()-h)/2f,(getWidth()+w)/2f,(getHeight()+h)/2f);p.setColor(SURFACE);c.drawRoundRect(r,dp(22),dp(22),p);text(c,resultTitle,r.centerX(),r.top+h*.34f,s()*.060f,resultKind>0?GOOD:BAD,true,Paint.Align.CENTER);text(c,resultSub,r.centerX(),r.top+h*.57f,s()*.034f,TEXT,false,Paint.Align.CENTER);text(c,"轻点继续",r.centerX(),r.bottom-h*.14f,s()*.029f,MUTED,false,Paint.Align.CENTER);}
-    private void panel(Canvas c,RectF r){p.setStyle(Paint.Style.FILL);p.setColor(SURFACE);c.drawRoundRect(r,dp(22),dp(22),p);}
-    private RectF centerButton(float yFrac,float widthFrac,float heightFrac){float w=s()*widthFrac,h=s()*heightFrac,cx=getWidth()/2f,cy=s()*yFrac;return new RectF(cx-w/2f,cy-h/2f,cx+w/2f,cy+h/2f);}
-    private void button(Canvas c,RectF r,String label,int color,boolean pressed){p.setStyle(Paint.Style.FILL);p.setColor(color);p.setAlpha(pressed?165:255);c.drawRoundRect(r,Math.min(r.height()/2f,dp(18)),Math.min(r.height()/2f,dp(18)),p);p.setAlpha(255);text(c,label,r.centerX(),r.centerY()+s()*.013f,Math.min(s()*.035f,r.height()*.38f),TEXT,true,Paint.Align.CENTER);}
+    private void drawResult(Canvas c){if(!resultVisible)return;float t=AppSettings.animations(prefs)?Math.max(0f,Math.min(1f,(SystemClock.elapsedRealtime()-resultShownAt)/250f)):1f;float u=1f-t;float eased=1f+2.55f*u*u*u+1.55f*u*u;float alpha=1f-u*u*u;p.setColor(Color.argb((int)(205*alpha),0,0,0));c.drawRect(0,0,getWidth(),getHeight(),p);float w=s()*(roundScreen ? .74f : .82f),h=s()*.36f,scale=.88f+.12f*eased;float sw=w*scale,sh=h*scale;resultRect.set((getWidth()-sw)/2f,(getHeight()-sh)/2f,(getWidth()+sw)/2f,(getHeight()+sh)/2f);RectF r=resultRect;p.setColor(SURFACE);c.drawRoundRect(r,dp(22),dp(22),p);text(c,resultTitle,r.centerX(),r.top+sh*.34f,s()*.060f,resultKind>0?GOOD:BAD,true,Paint.Align.CENTER);text(c,resultSub,r.centerX(),r.top+sh*.57f,s()*.034f,TEXT,false,Paint.Align.CENTER);text(c,"轻点继续",r.centerX(),r.bottom-sh*.14f,s()*.029f,MUTED,false,Paint.Align.CENTER);if(t<1f)animateNext();}
+    private void panel(Canvas c,RectF r){p.setStyle(Paint.Style.FILL);p.setColor(SURFACE);c.drawRoundRect(r,dp(22),dp(22),p);if(AppSettings.richEffects(prefs)){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(1));p.setColor(Color.argb(38,255,255,255));c.drawRoundRect(r,dp(22),dp(22),p);p.setStyle(Paint.Style.FILL);}}
+    private RectF centerButton(float yFrac,float widthFrac,float heightFrac){float w=s()*widthFrac,h=s()*heightFrac,cx=getWidth()/2f,cy=s()*yFrac;centerButtonRect.set(cx-w/2f,cy-h/2f,cx+w/2f,cy+h/2f);return centerButtonRect;}
+    private void button(Canvas c,RectF r,String label,int color,boolean pressed){p.setStyle(Paint.Style.FILL);p.setColor(color);float scale=pressed&&AppSettings.animations(prefs)?.94f:1f;float dx=r.width()*(1f-scale)/2f,dy=r.height()*(1f-scale)/2f;RectF rr=r;if(pressed){pressedRect.set(r.left+dx,r.top+dy,r.right-dx,r.bottom-dy);rr=pressedRect;}p.setAlpha(pressed?185:255);c.drawRoundRect(rr,Math.min(rr.height()/2f,dp(18)),Math.min(rr.height()/2f,dp(18)),p);p.setAlpha(255);text(c,label,rr.centerX(),rr.centerY()+s()*.013f,Math.min(s()*.035f,rr.height()*.38f),TEXT,true,Paint.Align.CENTER);}
     private void text(Canvas c,String str,float x,float y,float size,int color,boolean bold,Paint.Align align){p.setStyle(Paint.Style.FILL);p.setColor(color);p.setTextSize(size);p.setTextAlign(align);p.setTypeface(bold?BOLD:NORMAL);c.drawText(str,x,y,p);}
 }

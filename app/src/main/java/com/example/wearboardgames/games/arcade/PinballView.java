@@ -13,6 +13,7 @@ public final class PinballView extends BaseGameView {
     private int score, balls;
     private long lastTick, leftFlipUntil, rightFlipUntil;
     private boolean over;
+    private final RectF drawRect = new RectF();
     private final float[] bumperX = {.28f, .70f, .50f};
     private final float[] bumperY = {.34f, .34f, .55f};
 
@@ -38,7 +39,7 @@ public final class PinballView extends BaseGameView {
         panel(canvas, r);
 
         p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dp(3)); p.setColor(MUTED);
-        canvas.drawRoundRect(new RectF(r.left + dp(5), r.top + dp(5), r.right - dp(5), r.bottom - dp(5)), dp(18), dp(18), p);
+        drawRect.set(r.left + dp(5), r.top + dp(5), r.right - dp(5), r.bottom - dp(5)); canvas.drawRoundRect(drawRect, dp(18), dp(18), p);
         p.setStyle(Paint.Style.FILL);
         for (int i = 0; i < bumperX.length; i++) {
             float bx = r.left + bumperX[i] * r.width(), by = r.top + bumperY[i] * r.height();

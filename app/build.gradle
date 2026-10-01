@@ -6,6 +6,22 @@ plugins {
 }
 
 android {
+    def releaseKeystore = System.getenv('WBG_KEYSTORE_PATH')
+    def releaseStorePassword = System.getenv('WBG_KEYSTORE_PASSWORD')
+    def releaseKeyAlias = System.getenv('WBG_KEY_ALIAS')
+    def releaseKeyPassword = System.getenv('WBG_KEY_PASSWORD')
+    def hasReleaseSigning = releaseKeystore && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
+    signingConfigs {
+        releaseUpload {
+            if (hasReleaseSigning) {
+                storeFile file(releaseKeystore)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
     namespace 'com.example.wearboardgames'
     compileSdk 35
     buildToolsVersion '35.0.0'
@@ -36,9 +52,9 @@ android {
             minifyEnabled false
         }
         release {
-            // This project distributes APKs directly; use the debug key so the optimized
-            // release artifact remains installable from GitHub Actions/Termux builds.
-            signingConfig signingConfigs.debug
+            // CI/local sideload builds fall back to the debug key. For store publishing,
+            // provide WBG_KEYSTORE_PATH / WBG_KEYSTORE_PASSWORD / WBG_KEY_ALIAS / WBG_KEY_PASSWORD.
+            signingConfig hasReleaseSigning ? signingConfigs.releaseUpload : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -46,12 +62,19 @@ android {
     }
 }
 
+baselineProfile {
+    // CI generates a fresh profile explicitly on a Wear OS emulator before assembling Release.
+    // Keeping this false avoids requiring an emulator for ordinary local assembleRelease calls.
+    automaticGenerationDuringBuild false
+    saveInSrc true
+}
+
 dependencies {
     baselineProfile project(':baselineprofile')
     testImplementation "junit:junit:4.13.2"
     implementation "androidx.profileinstaller:profileinstaller:1.4.1"
     implementation "androidx.activity:activity-compose:1.10.1"
-    implementation "androidx.wear.compose:compose-material3:1.6.2"
-    implementation "androidx.wear.compose:compose-foundation:1.6.2"
+    implementation "androidx.wear.compose:compose-material3:1.7.0"
+    implementation "androidx.wear.compose:compose-foundation:1.7.0"
     implementation "androidx.wear:wear-remote-interactions:1.2.0"
 }

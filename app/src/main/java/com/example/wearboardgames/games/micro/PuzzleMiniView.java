@@ -68,6 +68,15 @@ public final class PuzzleMiniView extends View {
     private int pendingControl = -1;
     private long pendingControlUntil;
     private int pressedControl = -1;
+    private final RectF restartRect = new RectF();
+    private final RectF menuRect = new RectF();
+    private final RectF boardRect = new RectF();
+    private final RectF scratchRect = new RectF();
+    private final RectF scratchRect2 = new RectF();
+    private final RectF resultRect = new RectF();
+    private final RectF pressedRect = new RectF();
+    private int controlWidth = -1, controlHeight = -1;
+    private boolean controlLeftHanded;
 
     // Gesture tracking.
     private float downX, downY;
@@ -123,7 +132,7 @@ public final class PuzzleMiniView extends View {
         super(context);
         density = getResources().getDisplayMetrics().density;
         roundScreen = getResources().getConfiguration().isScreenRound();
-        prefs = context.getSharedPreferences("wear_games", Context.MODE_PRIVATE);
+        prefs = AppSettings.prefs(context);
         p.setTypeface(NORMAL);
         setBackgroundColor(BG);
         setFocusable(true);
@@ -154,7 +163,8 @@ public final class PuzzleMiniView extends View {
 
     private void nextFrame() {
         if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) {
-            if (AppSettings.saver(prefs)) postInvalidateDelayed(33); else postInvalidateOnAnimation();
+            long delay = AppSettings.frameDelayMs(prefs);
+            if (delay <= 0L) postInvalidateOnAnimation(); else postInvalidateDelayed(delay);
         }
     }
 
@@ -166,13 +176,22 @@ public final class PuzzleMiniView extends View {
         float s = side();
         float width = s * (roundScreen ? .68f : .76f);
         float top = contentTop() + s * .01f;
-        return new RectF((getWidth() - width) / 2f, top, (getWidth() + width) / 2f,
+        boardRect.set((getWidth() - width) / 2f, top, (getWidth() + width) / 2f,
                 Math.min(contentBottom() - dp(4), top + width));
+        return boardRect;
     }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         canvas.drawColor(BG);
+        if (AppSettings.richEffects(prefs)) {
+            float size = side();
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.argb(28, 82, 145, 220));
+            canvas.drawCircle(getWidth() * .50f, -size * .18f, size * .70f, p);
+            p.setColor(Color.argb(18, 157, 106, 255));
+            canvas.drawCircle(getWidth() * .90f, getHeight() * .55f, size * .52f, p);
+        }
         drawHeader(canvas);
         switch (mode) {
             case TARGET_TAP: drawTargetTap(canvas); break;
@@ -266,13 +285,13 @@ public final class PuzzleMiniView extends View {
         float right = b.right - b.width() * .10f;
         float y = b.centerY();
         p.setColor(SURFACE_2);
-        c.drawRoundRect(new RectF(left, y - dp(8), right, y + dp(8)), dp(8), dp(8), p);
+        scratchRect.set(left, y - dp(8), right, y + dp(8)); c.drawRoundRect(scratchRect, dp(8), dp(8), p);
         float centerX = (left + right) / 2f;
         p.setColor(GOOD);
-        c.drawRoundRect(new RectF(centerX - b.width() * .07f, y - dp(12), centerX + b.width() * .07f, y + dp(12)), dp(9), dp(9), p);
+        scratchRect.set(centerX - b.width() * .07f, y - dp(12), centerX + b.width() * .07f, y + dp(12)); c.drawRoundRect(scratchRect, dp(9), dp(9), p);
         float x = left + (right - left) * stopPosition;
         p.setColor(PRIMARY);
-        c.drawRoundRect(new RectF(x - dp(3), y - dp(28), x + dp(3), y + dp(28)), dp(3), dp(3), p);
+        scratchRect.set(x - dp(3), y - dp(28), x + dp(3), y + dp(28)); c.drawRoundRect(scratchRect, dp(3), dp(3), p);
         text(c, "第 " + Math.min(10, stopRound + 1) + "/10 次   " + stopScore + " 分", b.centerX(), b.top + dp(19), side() * .032f, TEXT, true, Paint.Align.CENTER);
     }
 
@@ -285,8 +304,9 @@ public final class PuzzleMiniView extends View {
         float top = b.top + b.height() * .33f;
         for (int i = 0; i < 6; i++) {
             int row = i / 3, col = i % 3;
-            RectF r = new RectF(b.left + gap + col * (cell + gap), top + row * (cell * .72f + gap),
+            scratchRect.set(b.left + gap + col * (cell + gap), top + row * (cell * .72f + gap),
                     b.left + gap + col * (cell + gap) + cell, top + row * (cell * .72f + gap) + cell * .72f);
+            RectF r = scratchRect;
             button(c, r, String.valueOf(pairValues[i]), i == pairFirst ? SECONDARY : SURFACE_2, false);
         }
         text(c, "答对 " + pairScore + "  ·  " + pairRound + "/10", b.centerX(), b.bottom - dp(13), side() * .030f, MUTED, false, Paint.Align.CENTER);
@@ -303,7 +323,7 @@ public final class PuzzleMiniView extends View {
             int row = i / 2, col = i % 2;
             float left = b.left + b.width() * .09f + col * (w + b.width() * .08f);
             float top = b.top + b.height() * .45f + row * (h + dp(7));
-            button(c, new RectF(left, top, left + w, top + h), String.valueOf(sequenceOptions[i]), SURFACE_2, false);
+            scratchRect.set(left, top, left + w, top + h); button(c, scratchRect, String.valueOf(sequenceOptions[i]), SURFACE_2, false);
         }
         text(c, "答对 " + sequenceScore + "  ·  " + sequenceRound + "/10", b.centerX(), b.bottom - dp(10), side() * .030f, MUTED, false, Paint.Align.CENTER);
     }
@@ -315,8 +335,10 @@ public final class PuzzleMiniView extends View {
         drawShape(c, b.centerX() - b.width() * .19f, cy, b.width() * .10f, shapeA, shapeColorA);
         drawShape(c, b.centerX() + b.width() * .19f, cy, b.width() * .10f, shapeB, shapeColorB);
         float w = b.width() * .35f, h = b.height() * .17f;
-        RectF yes = new RectF(b.left + b.width() * .10f, b.top + b.height() * .64f, b.left + b.width() * .10f + w, b.top + b.height() * .64f + h);
-        RectF no = new RectF(b.right - b.width() * .10f - w, yes.top, b.right - b.width() * .10f, yes.bottom);
+        scratchRect.set(b.left + b.width() * .10f, b.top + b.height() * .64f, b.left + b.width() * .10f + w, b.top + b.height() * .64f + h);
+        RectF yes = scratchRect;
+        scratchRect2.set(b.right - b.width() * .10f - w, yes.top, b.right - b.width() * .10f, yes.bottom);
+        RectF no = scratchRect2;
         button(c, yes, "相同", GOOD, false);
         button(c, no, "不同", SECONDARY, false);
         text(c, "答对 " + shapeScore + "  ·  " + shapeRound + "/15", b.centerX(), b.top + dp(19), side() * .032f, TEXT, true, Paint.Align.CENTER);
@@ -336,8 +358,8 @@ public final class PuzzleMiniView extends View {
         float left = b.centerX() - total / 2f;
         float top = b.top + b.height() * .69f;
         for (int i = 0; i < 4; i++) {
-            button(c, new RectF(left + i * (w + gap), top, left + i * (w + gap) + w, top + b.height() * .16f),
-                    String.valueOf(countOptions[i]), SURFACE_2, false);
+            scratchRect.set(left + i * (w + gap), top, left + i * (w + gap) + w, top + b.height() * .16f);
+            button(c, scratchRect, String.valueOf(countOptions[i]), SURFACE_2, false);
         }
         text(c, "第 " + Math.min(12, countRound + 1) + "/12   " + countScore + " 分", b.centerX(), b.top + dp(18), side() * .031f, TEXT, true, Paint.Align.CENTER);
     }
@@ -356,11 +378,11 @@ public final class PuzzleMiniView extends View {
         }
         float left = b.left + b.width() * .08f, right = b.right - b.width() * .08f, y = b.centerY();
         p.setColor(SURFACE_2);
-        c.drawRoundRect(new RectF(left, y - dp(9), right, y + dp(9)), dp(9), dp(9), p);
+        scratchRect.set(left, y - dp(9), right, y + dp(9)); c.drawRoundRect(scratchRect, dp(9), dp(9), p);
         float zoneLeft = left + (right - left) * Math.max(0f, safeCenter - safeWidth / 2f);
         float zoneRight = left + (right - left) * Math.min(1f, safeCenter + safeWidth / 2f);
         p.setColor(GOOD);
-        c.drawRoundRect(new RectF(zoneLeft, y - dp(13), zoneRight, y + dp(13)), dp(9), dp(9), p);
+        scratchRect.set(zoneLeft, y - dp(13), zoneRight, y + dp(13)); c.drawRoundRect(scratchRect, dp(9), dp(9), p);
         float x = left + (right - left) * safePosition;
         p.setColor(PRIMARY);
         c.drawCircle(x, y, dp(9), p);
@@ -373,7 +395,7 @@ public final class PuzzleMiniView extends View {
         if (shape == 0) {
             c.drawCircle(cx, cy, r, p);
         } else if (shape == 1) {
-            c.drawRoundRect(new RectF(cx - r, cy - r, cx + r, cy + r), dp(7), dp(7), p);
+            scratchRect.set(cx - r, cy - r, cx + r, cy + r); c.drawRoundRect(scratchRect, dp(7), dp(7), p);
         } else {
             path.reset();
             path.moveTo(cx, cy - r);
@@ -493,8 +515,9 @@ public final class PuzzleMiniView extends View {
         float gap = dp(6), cell = (b.width() - gap * 4) / 3f, top = b.top + b.height() * .33f;
         for (int i = 0; i < 6; i++) {
             int row = i / 3, col = i % 3;
-            RectF r = new RectF(b.left + gap + col * (cell + gap), top + row * (cell * .72f + gap),
+            scratchRect.set(b.left + gap + col * (cell + gap), top + row * (cell * .72f + gap),
                     b.left + gap + col * (cell + gap) + cell, top + row * (cell * .72f + gap) + cell * .72f);
+            RectF r = scratchRect;
             if (!r.contains(x, y)) continue;
             if (pairFirst < 0) {
                 pairFirst = i;
@@ -524,7 +547,7 @@ public final class PuzzleMiniView extends View {
             int row = i / 2, col = i % 2;
             float left = b.left + b.width() * .09f + col * (w + b.width() * .08f);
             float top = b.top + b.height() * .45f + row * (h + dp(7));
-            if (!new RectF(left, top, left + w, top + h).contains(x, y)) continue;
+            scratchRect.set(left, top, left + w, top + h); if (!scratchRect.contains(x, y)) continue;
             sequenceRound++;
             if (sequenceOptions[i] == sequenceCorrect) {
                 sequenceScore++;
@@ -543,8 +566,10 @@ public final class PuzzleMiniView extends View {
         if (shapeOver) return;
         RectF b = board();
         float w = b.width() * .35f, h = b.height() * .17f;
-        RectF yes = new RectF(b.left + b.width() * .10f, b.top + b.height() * .64f, b.left + b.width() * .10f + w, b.top + b.height() * .64f + h);
-        RectF no = new RectF(b.right - b.width() * .10f - w, yes.top, b.right - b.width() * .10f, yes.bottom);
+        scratchRect.set(b.left + b.width() * .10f, b.top + b.height() * .64f, b.left + b.width() * .10f + w, b.top + b.height() * .64f + h);
+        RectF yes = scratchRect;
+        scratchRect2.set(b.right - b.width() * .10f - w, yes.top, b.right - b.width() * .10f, yes.bottom);
+        RectF no = scratchRect2;
         boolean answer;
         if (yes.contains(x, y)) answer = true;
         else if (no.contains(x, y)) answer = false;
@@ -567,7 +592,7 @@ public final class PuzzleMiniView extends View {
         float w = b.width() * .18f, gap = b.width() * .035f;
         float total = w * 4 + gap * 3, left = b.centerX() - total / 2f, top = b.top + b.height() * .69f;
         for (int i = 0; i < 4; i++) {
-            RectF r = new RectF(left + i * (w + gap), top, left + i * (w + gap) + w, top + b.height() * .16f);
+            scratchRect.set(left + i * (w + gap), top, left + i * (w + gap) + w, top + b.height() * .16f); RectF r = scratchRect;
             if (!r.contains(x, y)) continue;
             countRound++;
             if (i == countCorrect) {
@@ -786,58 +811,75 @@ public final class PuzzleMiniView extends View {
         invalidate();
     }
 
+    private void updateBottomRects() {
+        boolean leftHanded = AppSettings.leftHanded(prefs);
+        if (controlWidth == getWidth() && controlHeight == getHeight() && controlLeftHanded == leftHanded) return;
+        controlWidth = getWidth(); controlHeight = getHeight(); controlLeftHanded = leftHanded;
+        float h = dp(42), bottom = getHeight() - dp(3), gap = dp(7);
+        float w = Math.min(side() * .34f, (getWidth() - gap * 3) / 2f), cx = getWidth() / 2f;
+        RectF physicalLeft = leftHanded ? menuRect : restartRect;
+        RectF physicalRight = leftHanded ? restartRect : menuRect;
+        physicalLeft.set(cx - gap / 2f - w, bottom - h, cx - gap / 2f, bottom);
+        physicalRight.set(cx + gap / 2f, bottom - h, cx + gap / 2f + w, bottom);
+    }
+
     private int bottomControlAt(float x, float y) {
-        RectF[] rects = bottomRects();
-        if (rects[0].contains(x, y)) return 0;
-        if (rects[1].contains(x, y)) return 1;
+        updateBottomRects();
+        if (restartRect.contains(x, y)) return 0;
+        if (menuRect.contains(x, y)) return 1;
         return -1;
     }
 
-    private RectF[] bottomRects() {
-        float h = dp(42), bottom = getHeight() - dp(3), gap = dp(7);
-        float w = Math.min(side() * .34f, (getWidth() - gap * 3) / 2f), cx = getWidth() / 2f;
-        return new RectF[]{
-                new RectF(cx - gap / 2f - w, bottom - h, cx - gap / 2f, bottom),
-                new RectF(cx + gap / 2f, bottom - h, cx + gap / 2f + w, bottom)
-        };
-    }
-
     private void drawBottomControls(Canvas c) {
-        RectF[] rects = bottomRects();
+        updateBottomRects();
         long now = SystemClock.elapsedRealtime();
         if (pendingControl >= 0 && now > pendingControlUntil) pendingControl = -1;
-        button(c, rects[0], pendingControl == 0 ? "确认重开" : "重开", pendingControl == 0 ? BAD : SURFACE_2, pressedControl == 0);
-        button(c, rects[1], pendingControl == 1 ? "确认返回" : "菜单", pendingControl == 1 ? BAD : SURFACE_2, pressedControl == 1);
+        button(c, restartRect, pendingControl == 0 ? "确认重开" : "重开", pendingControl == 0 ? BAD : SURFACE_2, pressedControl == 0);
+        button(c, menuRect, pendingControl == 1 ? "确认返回" : "菜单", pendingControl == 1 ? BAD : SURFACE_2, pressedControl == 1);
         if (pendingControl >= 0 && now <= pendingControlUntil) invalidateLater(180);
     }
 
     private void drawResult(Canvas c) {
         if (!resultVisible) return;
+        float t = AppSettings.animations(prefs) ? Math.max(0f, Math.min(1f, (SystemClock.elapsedRealtime() - resultShownAt) / 250f)) : 1f;
+        float u = 1f - t, eased = 1f + 2.55f * u * u * u + 1.55f * u * u, alpha = 1f - u * u * u;
         p.setStyle(Paint.Style.FILL);
-        p.setColor(Color.argb(210, 0, 0, 0));
+        p.setColor(Color.argb((int)(210 * alpha), 0, 0, 0));
         c.drawRect(0, 0, getWidth(), getHeight(), p);
-        float w = side() * (roundScreen ? .75f : .83f), h = side() * .36f;
-        RectF r = new RectF((getWidth() - w) / 2f, (getHeight() - h) / 2f, (getWidth() + w) / 2f, (getHeight() + h) / 2f);
+        float w = side() * (roundScreen ? .75f : .83f), h = side() * .36f, scale = .88f + .12f * eased;
+        float sw = w * scale, sh = h * scale;
+        resultRect.set((getWidth() - sw) / 2f, (getHeight() - sh) / 2f, (getWidth() + sw) / 2f, (getHeight() + sh) / 2f); RectF r = resultRect;
         p.setColor(SURFACE);
         c.drawRoundRect(r, dp(22), dp(22), p);
-        text(c, resultTitle, r.centerX(), r.top + h * .34f, side() * .058f, resultKind > 0 ? GOOD : BAD, true, Paint.Align.CENTER);
-        text(c, resultSub, r.centerX(), r.top + h * .57f, side() * .033f, TEXT, false, Paint.Align.CENTER);
-        text(c, "轻点继续", r.centerX(), r.bottom - h * .14f, side() * .029f, MUTED, false, Paint.Align.CENTER);
+        text(c, resultTitle, r.centerX(), r.top + sh * .34f, side() * .058f, resultKind > 0 ? GOOD : BAD, true, Paint.Align.CENTER);
+        text(c, resultSub, r.centerX(), r.top + sh * .57f, side() * .033f, TEXT, false, Paint.Align.CENTER);
+        text(c, "轻点继续", r.centerX(), r.bottom - sh * .14f, side() * .029f, MUTED, false, Paint.Align.CENTER);
+        if (t < 1f) nextFrame();
     }
 
     private void panel(Canvas c, RectF r) {
         p.setStyle(Paint.Style.FILL);
         p.setColor(SURFACE);
         c.drawRoundRect(r, dp(22), dp(22), p);
+        if (AppSettings.richEffects(prefs)) {
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(dp(1));
+            p.setColor(Color.argb(38, 255, 255, 255));
+            c.drawRoundRect(r, dp(22), dp(22), p);
+            p.setStyle(Paint.Style.FILL);
+        }
     }
 
     private void button(Canvas c, RectF r, String label, int color, boolean pressed) {
         p.setStyle(Paint.Style.FILL);
         p.setColor(color);
-        p.setAlpha(pressed ? 170 : 255);
-        c.drawRoundRect(r, Math.min(r.height() / 2f, dp(18)), Math.min(r.height() / 2f, dp(18)), p);
+        float scale = pressed && AppSettings.animations(prefs) ? .94f : 1f;
+        float dx = r.width() * (1f - scale) / 2f, dy = r.height() * (1f - scale) / 2f;
+        RectF rr = r; if (pressed) { pressedRect.set(r.left + dx, r.top + dy, r.right - dx, r.bottom - dy); rr = pressedRect; }
+        p.setAlpha(pressed ? 190 : 255);
+        c.drawRoundRect(rr, Math.min(rr.height() / 2f, dp(18)), Math.min(rr.height() / 2f, dp(18)), p);
         p.setAlpha(255);
-        text(c, label, r.centerX(), r.centerY() + side() * .013f, Math.min(side() * .034f, r.height() * .38f), TEXT, true, Paint.Align.CENTER);
+        text(c, label, rr.centerX(), rr.centerY() + side() * .013f, Math.min(side() * .034f, rr.height() * .38f), TEXT, true, Paint.Align.CENTER);
     }
 
     private void text(Canvas c, String value, float x, float y, float size, int color, boolean bold, Paint.Align align) {

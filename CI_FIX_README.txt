@@ -1,4 +1,4 @@
-GitHub Actions 构建说明（v7 当前版）
+GitHub Actions 构建说明（历史说明 + v8.0.1 当前状态）
 ==================================
 
 此文件在 v6 中用于记录一次历史 CI 故障。v7 已完成构建链升级，请以当前
@@ -11,10 +11,12 @@ GitHub Actions 构建说明（v7 当前版）
 - Android Gradle Plugin：8.6.1
 - Kotlin：2.1.21
 - JDK：17
-- Wear Compose Material 3 / Foundation：1.6.2
+- Wear Compose Material 3 / Foundation：1.7.0
 
 当前 workflow 不安装已废弃的 legacy `tools` 包，只使用 GitHub Ubuntu runner
 现有的 sdkmanager 安装 platform-tools、platforms;android-35、build-tools;35.0.0。
+质量任务执行 assembleDebug + lintRelease + testReleaseUnitTest；随后在 Wear OS API 35
+模拟器中生成 Release Baseline Profile 并 assembleRelease。
 
 Termux 推送：
   cd "/storage/emulated/0/黑白君/game"

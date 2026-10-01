@@ -26,7 +26,12 @@ class BaselineProfileGenerator {
         clickTextWithScroll("街机经典")
         device.wait(Until.hasObject(By.text("俄罗斯方块")), 3_000)
         clickTextWithScroll("俄罗斯方块")
-        device.wait(Until.hasObject(By.textContains("俄罗斯方块")), 3_000)
+        // Game content is a custom Canvas View, so it intentionally has no Compose text node.
+        // Waiting for idle still lets ART observe the real game View construction/render path.
+        device.waitForIdle()
+        Thread.sleep(900)
+        device.pressBack()
+        Thread.sleep(120)
         device.pressBack()
         device.waitForIdle()
     }

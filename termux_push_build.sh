@@ -45,7 +45,7 @@ rsync -av --delete \
 # 写入正确 workflow，避免继续跑旧的 "packages: tools platform-tools" 配置。
 mkdir -p "$WORK/.github/workflows"
 cat > "$WORK/.github/workflows/android.yml" <<'YAML'
-name: Build Wear OS APK
+name: Build and Validate Wear OS APK
 
 on:
   push:
@@ -58,9 +58,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  quality:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,42 +70,102 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
       - name: Install Android SDK 35
         shell: bash
         run: |
           set -euxo pipefail
           SDKMANAGER="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(command -v sdkmanager)"
-          fi
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Compile, lint and unit test
+        run: gradle assembleDebug lintRelease testReleaseUnitTest --no-daemon --stacktrace
+
+      - name: Upload lint report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-release-report
+          path: app/build/reports/lint-results-release.*
+          if-no-files-found: ignore
+          retention-days: 14
+
+  baseline-profile-release:
+    needs: quality
+    runs-on: ubuntu-latest
+    env:
+      WBG_KEYSTORE_BASE64: ${{ secrets.WBG_KEYSTORE_BASE64 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Show build environment
+      - name: Enable KVM
         shell: bash
         run: |
-          java -version
-          gradle --version
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
-      - name: Build Optimized APK
-        run: gradle testReleaseUnitTest assembleRelease --no-daemon --stacktrace
+      - name: Prepare optional release signing key
+        if: ${{ env.WBG_KEYSTORE_BASE64 != '' }}
+        shell: bash
+        run: |
+          echo "$WBG_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/wbg-release.jks"
+          echo "WBG_KEYSTORE_PATH=$RUNNER_TEMP/wbg-release.jks" >> "$GITHUB_ENV"
 
-      - name: Upload Optimized APK
+      - name: Generate Baseline Profile and build optimized Release on Wear OS 5.1
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          WBG_KEYSTORE_PASSWORD: ${{ secrets.WBG_KEYSTORE_PASSWORD }}
+          WBG_KEY_ALIAS: ${{ secrets.WBG_KEY_ALIAS }}
+          WBG_KEY_PASSWORD: ${{ secrets.WBG_KEY_PASSWORD }}
+        with:
+          api-level: 35
+          system-image-api-level: 35-ext15
+          target: android-wear
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: gradle :app:generateReleaseBaselineProfile :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Verify generated Baseline Profile exists
+        shell: bash
+        run: |
+          set -euxo pipefail
+          find app/src -type f \( -name 'baseline-prof.txt' -o -name '*baseline-prof*.txt' \) -print
+          test -n "$(find app/src -type f -name '*baseline-prof*.txt' -print -quit)"
+
+      - name: Upload optimized APK
         uses: actions/upload-artifact@v4
         with:
           name: wear-os-game-release
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload generated Baseline Profile
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-profile
+          path: app/src/**/generated/baselineProfiles/**
+          if-no-files-found: warn
           retention-days: 14
 YAML
 

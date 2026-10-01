@@ -14,6 +14,7 @@ public final class PongView extends BaseGameView {
     private int bottomScore, topScore;
     private long lastTick;
     private boolean running, over, initialized;
+    private final RectF drawRect = new RectF();
 
     public PongView(Context context) { super(context); }
     public static boolean supportsMode(int mode) { return mode == MODE; }
@@ -39,15 +40,15 @@ public final class PongView extends BaseGameView {
         p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dp(1)); p.setColor(Color.rgb(67,74,86));
         c.drawLine(b.left, b.centerY(), b.right, b.centerY(), p); p.setStyle(Paint.Style.FILL);
         float paddleW=b.width()*.30f, paddleH=Math.max(dp(6),s()*.018f), r=s()*.020f;
-        p.setColor(PRIMARY); c.drawRoundRect(new RectF(bottomX-paddleW/2,b.bottom-paddleH*2,bottomX+paddleW/2,b.bottom-paddleH),paddleH,paddleH,p);
-        p.setColor(SECONDARY); c.drawRoundRect(new RectF(topX-paddleW/2,b.top+paddleH,topX+paddleW/2,b.top+paddleH*2),paddleH,paddleH,p);
+        p.setColor(PRIMARY); drawRect.set(bottomX-paddleW/2,b.bottom-paddleH*2,bottomX+paddleW/2,b.bottom-paddleH); c.drawRoundRect(drawRect,paddleH,paddleH,p);
+        p.setColor(SECONDARY); drawRect.set(topX-paddleW/2,b.top+paddleH,topX+paddleW/2,b.top+paddleH*2); c.drawRoundRect(drawRect,paddleH,paddleH,p);
         p.setColor(TEXT); c.drawCircle(ballX,ballY,r,p);
         if (!running && !over) text(c,"轻点或拖动开始",b.centerX(),b.centerY()+s()*.010f,s()*.027f,MUTED,false,Paint.Align.CENTER);
         if (running) animateNext();
     }
 
     private void update(RectF b) {
-        if (!running || over || !initialized) return;
+        if (!running || over || !initialized || startCountdownActive()) return;
         long t=now(); float dt=Math.min(.032f,(t-lastTick)/1000f); lastTick=t;
         float paddleW=b.width()*.30f, paddleH=Math.max(dp(6),s()*.018f), r=s()*.020f;
         if (isSinglePlayer()) topX += (ballX-topX)*Math.min(1f,dt*4.8f);
@@ -66,12 +67,13 @@ public final class PongView extends BaseGameView {
 
     private void point(RectF b, boolean playerScored) {
         sound(SoundManager.SCORE); haptic(HapticFeedbackConstants.CONFIRM);
+        showScorePopup(playerScored ? "+1" : "对手 +1");
         if (bottomScore>=7 || topScore>=7) { over=true; running=false; finishRound(bottomScore>topScore?1:-1,bottomScore>topScore?"你赢了！":"对手获胜",bottomScore+" : "+topScore,bottomScore); }
         else init(b,!playerScored);
     }
 
     private void control(float x,float y) {
-        RectF b=board(); if (!initialized) init(b,true); running=true; lastTick=now();
+        RectF b=board(); if (!initialized) init(b,true); if(!running){running=true;beginStartCountdown();} lastTick=now();
         if (!isSinglePlayer() && y<b.centerY()) topX=x; else bottomX=x;
         invalidate();
     }

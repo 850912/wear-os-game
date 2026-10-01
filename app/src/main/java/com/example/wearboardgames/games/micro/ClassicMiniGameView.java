@@ -38,6 +38,10 @@ public final class ClassicMiniGameView extends BaseGameView {
     private long startedAt, phaseAt, deadline;
     private boolean waiting, ready, pausedPhase;
     private float angle, ringRadius;
+    private final RectF scratchRect = new RectF();
+    private final RectF scratchRect2 = new RectF();
+    private final RectF squareRect = new RectF();
+    private final RectF buttonRect = new RectF();
 
     public ClassicMiniGameView(Context context) { super(context); }
 
@@ -147,17 +151,17 @@ public final class ClassicMiniGameView extends BaseGameView {
     private void drawColorHunt(Canvas c){
         drawHeader(c,"色块猎手","关卡 "+(round+1)+" / 12"); RectF r=squareArea(.76f);float gap=dp(5),cell=(r.width()-gap*2)/3f;
         int base=Color.rgb(70+round*5%80,130,190); int odd=Color.rgb(95+round*5%80,150,205);
-        for(int i=0;i<9;i++){float x=r.left+(i%3)*(cell+gap),y=r.top+(i/3)*(cell+gap);p.setColor(i==target?odd:base);c.drawRoundRect(new RectF(x,y,x+cell,y+cell),dp(10),dp(10),p);}
+        for(int i=0;i<9;i++){float x=r.left+(i%3)*(cell+gap),y=r.top+(i/3)*(cell+gap);p.setColor(i==target?odd:base);scratchRect.set(x,y,x+cell,y+cell);c.drawRoundRect(scratchRect,dp(10),dp(10),p);}
     }
 
     private void drawGridNumbers(Canvas c,int n,String title,String sub,boolean blankZero){
         drawHeader(c,title,sub);RectF r=squareArea(.78f);float gap=dp(4),cell=(r.width()-gap*(n-1))/n;
-        for(int i=0;i<n*n;i++){int v=a[i];float x=r.left+(i%n)*(cell+gap),y=r.top+(i/n)*(cell+gap);RectF q=new RectF(x,y,x+cell,y+cell);p.setColor(v==0&&blankZero?BG:SURFACE_HIGH);c.drawRoundRect(q,dp(9),dp(9),p);if(!(v==0&&blankZero))text(c,String.valueOf(v),q.centerX(),q.centerY()+cell*.13f,cell*.34f,TEXT,true,Paint.Align.CENTER);}
+        for(int i=0;i<n*n;i++){int v=a[i];float x=r.left+(i%n)*(cell+gap),y=r.top+(i/n)*(cell+gap);scratchRect.set(x,y,x+cell,y+cell);RectF q=scratchRect;p.setColor(v==0&&blankZero?BG:SURFACE_HIGH);c.drawRoundRect(q,dp(9),dp(9),p);if(!(v==0&&blankZero))text(c,String.valueOf(v),q.centerX(),q.centerY()+cell*.13f,cell*.34f,TEXT,true,Paint.Align.CENTER);}
     }
 
     private void drawLights(Canvas c){
         drawHeader(c,"熄灯解谜","步数 "+moves+" · 全部熄灭即完成");RectF r=squareArea(.76f);float gap=dp(5),cell=(r.width()-gap*3)/4f;
-        for(int i=0;i<16;i++){float x=r.left+(i%4)*(cell+gap),y=r.top+(i/4)*(cell+gap);p.setColor(a[i]==1?Color.rgb(255,211,84):SURFACE_HIGH);c.drawRoundRect(new RectF(x,y,x+cell,y+cell),dp(10),dp(10),p);}
+        for(int i=0;i<16;i++){float x=r.left+(i%4)*(cell+gap),y=r.top+(i/4)*(cell+gap);p.setColor(a[i]==1?Color.rgb(255,211,84):SURFACE_HIGH);scratchRect.set(x,y,x+cell,y+cell);c.drawRoundRect(scratchRect,dp(10),dp(10),p);}
     }
 
     private void drawRps(Canvas c){
@@ -166,7 +170,7 @@ public final class ClassicMiniGameView extends BaseGameView {
 
     private void drawMemory(Canvas c){
         drawHeader(c,"记忆配对","配对 "+score+" / 8 · 翻牌 "+moves);RectF r=squareArea(.78f);float gap=dp(4),cell=(r.width()-gap*3)/4f;
-        for(int i=0;i<16;i++){float x=r.left+(i%4)*(cell+gap),y=r.top+(i/4)*(cell+gap);RectF q=new RectF(x,y,x+cell,y+cell);boolean show=b[i]==1||i==selected||i==second;p.setColor(show?SURFACE_HIGH:Color.rgb(52,65,82));c.drawRoundRect(q,dp(8),dp(8),p);if(show)text(c,String.valueOf(a[i]),q.centerX(),q.centerY()+cell*.12f,cell*.34f,b[i]==1?GOOD:PRIMARY,true,Paint.Align.CENTER);}
+        for(int i=0;i<16;i++){float x=r.left+(i%4)*(cell+gap),y=r.top+(i/4)*(cell+gap);scratchRect.set(x,y,x+cell,y+cell);RectF q=scratchRect;boolean show=b[i]==1||i==selected||i==second;p.setColor(show?SURFACE_HIGH:Color.rgb(52,65,82));c.drawRoundRect(q,dp(8),dp(8),p);if(show)text(c,String.valueOf(a[i]),q.centerX(),q.centerY()+cell*.12f,cell*.34f,b[i]==1?GOOD:PRIMARY,true,Paint.Align.CENTER);}
     }
 
     private void drawMath(Canvas c){
@@ -186,7 +190,7 @@ public final class ClassicMiniGameView extends BaseGameView {
     }
 
     private void drawBlackjack(Canvas c){
-        int ps=handValue(a,target), ds=handValue(b,target2);drawHeader(c,"21 点","你 "+ps+" · 庄家 "+(pausedPhase?ds:"?"));RectF r=area();panel(c,r);text(c,"你的手牌",r.centerX(),r.top+r.height()*.20f,s()*.028f,MUTED,false,Paint.Align.CENTER);drawCards(c,a,target,r.centerX(),r.top+r.height()*.36f);if(!pausedPhase){RectF l=new RectF(r.left+dp(8),r.bottom-r.height()*.25f,r.centerX()-dp(4),r.bottom-dp(8));RectF rr=new RectF(r.centerX()+dp(4),l.top,r.right-dp(8),l.bottom);p.setColor(SURFACE_HIGH);c.drawRoundRect(l,dp(12),dp(12),p);c.drawRoundRect(rr,dp(12),dp(12),p);text(c,"要牌",l.centerX(),l.centerY()+s()*.012f,s()*.03f,TEXT,true,Paint.Align.CENTER);text(c,"停牌",rr.centerX(),rr.centerY()+s()*.012f,s()*.03f,TEXT,true,Paint.Align.CENTER);}
+        int ps=handValue(a,target), ds=handValue(b,target2);drawHeader(c,"21 点","你 "+ps+" · 庄家 "+(pausedPhase?ds:"?"));RectF r=area();panel(c,r);text(c,"你的手牌",r.centerX(),r.top+r.height()*.20f,s()*.028f,MUTED,false,Paint.Align.CENTER);drawCards(c,a,target,r.centerX(),r.top+r.height()*.36f);if(!pausedPhase){scratchRect.set(r.left+dp(8),r.bottom-r.height()*.25f,r.centerX()-dp(4),r.bottom-dp(8));RectF l=scratchRect;scratchRect2.set(r.centerX()+dp(4),l.top,r.right-dp(8),l.bottom);RectF rr=scratchRect2;p.setColor(SURFACE_HIGH);c.drawRoundRect(l,dp(12),dp(12),p);c.drawRoundRect(rr,dp(12),dp(12),p);text(c,"要牌",l.centerX(),l.centerY()+s()*.012f,s()*.03f,TEXT,true,Paint.Align.CENTER);text(c,"停牌",rr.centerX(),rr.centerY()+s()*.012f,s()*.03f,TEXT,true,Paint.Align.CENTER);}
     }
 
     private void drawQuickDraw(Canvas c){
@@ -194,7 +198,7 @@ public final class ClassicMiniGameView extends BaseGameView {
     }
 
     private void drawHighLow(Canvas c){
-        drawHeader(c,"猜大小","第 "+(round+1)+" / 10 题 · "+score+" 分");RectF r=area();panel(c,r);text(c,cardName(target),r.centerX(),r.top+r.height()*.40f,s()*.10f,PRIMARY,true,Paint.Align.CENTER);RectF l=new RectF(r.left+dp(8),r.bottom-r.height()*.28f,r.centerX()-dp(4),r.bottom-dp(8)),rr=new RectF(r.centerX()+dp(4),l.top,r.right-dp(8),l.bottom);p.setColor(SURFACE_HIGH);c.drawRoundRect(l,dp(12),dp(12),p);c.drawRoundRect(rr,dp(12),dp(12),p);text(c,"更小",l.centerX(),l.centerY()+s()*.012f,s()*.03f,TEXT,true,Paint.Align.CENTER);text(c,"更大",rr.centerX(),rr.centerY()+s()*.012f,s()*.03f,TEXT,true,Paint.Align.CENTER);
+        drawHeader(c,"猜大小","第 "+(round+1)+" / 10 题 · "+score+" 分");RectF r=area();panel(c,r);text(c,cardName(target),r.centerX(),r.top+r.height()*.40f,s()*.10f,PRIMARY,true,Paint.Align.CENTER);scratchRect.set(r.left+dp(8),r.bottom-r.height()*.28f,r.centerX()-dp(4),r.bottom-dp(8));RectF l=scratchRect;scratchRect2.set(r.centerX()+dp(4),l.top,r.right-dp(8),l.bottom);RectF rr=scratchRect2;p.setColor(SURFACE_HIGH);c.drawRoundRect(l,dp(12),dp(12),p);c.drawRoundRect(rr,dp(12),dp(12),p);text(c,"更小",l.centerX(),l.centerY()+s()*.012f,s()*.03f,TEXT,true,Paint.Align.CENTER);text(c,"更大",rr.centerX(),rr.centerY()+s()*.012f,s()*.03f,TEXT,true,Paint.Align.CENTER);
     }
 
     private void drawOrbit(Canvas c){
@@ -205,8 +209,8 @@ public final class ClassicMiniGameView extends BaseGameView {
         drawHeader(c,"圆环时机","第 "+(round+1)+" / 8 次 · "+score+" 分");RectF r=area();float max=Math.min(r.width(),r.height())*.38f;ringRadius += powerSaver()?.018f:.010f;if(ringRadius>.95f)ringRadius=.10f;p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(5));p.setColor(GOOD);c.drawCircle(r.centerX(),r.centerY(),max*.58f,p);p.setColor(PRIMARY);c.drawCircle(r.centerX(),r.centerY(),max*ringRadius,p);p.setStyle(Paint.Style.FILL);text(c,"目标是绿环",r.centerX(),r.bottom-s()*.035f,s()*.024f,MUTED,false,Paint.Align.CENTER);animateNext();
     }
 
-    private RectF squareArea(float fraction){RectF g=area();float side=Math.min(g.width(),g.height())*fraction;return new RectF(g.centerX()-side/2,g.centerY()-side/2,g.centerX()+side/2,g.centerY()+side/2);}
-    private RectF buttonCell(RectF r,int index,int count){float gap=dp(5),w=(r.width()-dp(16)-gap*(count-1))/count;float x=r.left+dp(8)+index*(w+gap);float top=r.bottom-r.height()*.30f;return new RectF(x,top,x+w,r.bottom-dp(8));}
+    private RectF squareArea(float fraction){RectF g=area();float side=Math.min(g.width(),g.height())*fraction;squareRect.set(g.centerX()-side/2,g.centerY()-side/2,g.centerX()+side/2,g.centerY()+side/2);return squareRect;}
+    private RectF buttonCell(RectF r,int index,int count){float gap=dp(5),w=(r.width()-dp(16)-gap*(count-1))/count;float x=r.left+dp(8)+index*(w+gap);float top=r.bottom-r.height()*.30f;buttonRect.set(x,top,x+w,r.bottom-dp(8));return buttonRect;}
     private int indexAt(RectF r,int n,float x,float y){if(!r.contains(x,y))return-1;int col=(int)((x-r.left)/(r.width()/n)),row=(int)((y-r.top)/(r.height()/n));return Math.max(0,Math.min(n*n-1,row*n+col));}
 
     @Override protected void onGameTap(float x,float y){
@@ -258,7 +262,7 @@ public final class ClassicMiniGameView extends BaseGameView {
 
     private int drawCard(){int v=1+random.nextInt(13);return Math.min(v,10);}
     private int handValue(int[] hand,int count){int sum=0,aces=0;for(int i=0;i<count;i++){sum+=hand[i]==1?11:hand[i];if(hand[i]==1)aces++;}while(sum>21&&aces-->0)sum-=10;return sum;}
-    private void drawCards(Canvas c,int[] hand,int count,float cx,float y){float gap=s()*.07f;float start=cx-(count-1)*gap/2;for(int i=0;i<count;i++){RectF q=new RectF(start+i*gap-s()*.028f,y-s()*.045f,start+i*gap+s()*.028f,y+s()*.045f);p.setColor(Color.rgb(235,238,242));c.drawRoundRect(q,dp(5),dp(5),p);text(c,cardName(hand[i]),q.centerX(),q.centerY()+s()*.012f,s()*.026f,BG,true,Paint.Align.CENTER);}}
+    private void drawCards(Canvas c,int[] hand,int count,float cx,float y){float gap=s()*.07f;float start=cx-(count-1)*gap/2;for(int i=0;i<count;i++){scratchRect.set(start+i*gap-s()*.028f,y-s()*.045f,start+i*gap+s()*.028f,y+s()*.045f);RectF q=scratchRect;p.setColor(Color.rgb(235,238,242));c.drawRoundRect(q,dp(5),dp(5),p);text(c,cardName(hand[i]),q.centerX(),q.centerY()+s()*.012f,s()*.026f,BG,true,Paint.Align.CENTER);}}
     private String cardName(int v){return v==1?"A":v==11?"J":v==12?"Q":v==13?"K":String.valueOf(v);}
     private void tapBlackjack(float x,float y){if(pausedPhase)return;RectF r=area();boolean hit=x<r.centerX();if(hit){if(target<a.length)a[target++]=drawCard();int ps=handValue(a,target);if(ps>21){pausedPhase=true;finishRound(-1,"爆牌",ps+" 点",ps);}}else{while(handValue(b,target2)<17&&target2<b.length)b[target2++]=drawCard();pausedPhase=true;int ps=handValue(a,target),ds=handValue(b,target2);int kind=ds>21||ps>ds?1:ps<ds?-1:0;finishRound(kind,kind>0?"你赢了":kind<0?"庄家赢了":"平局",ps+" : "+ds,ps);}}
 

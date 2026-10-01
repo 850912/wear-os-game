@@ -9,6 +9,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -172,11 +174,26 @@ private fun WearGamesApp(
         AnimatedContent(
             targetState = page,
             transitionSpec = {
-                if (initialState == HubPage.GAME || targetState == HubPage.GAME) {
-                    fadeIn(tween(120)) togetherWith fadeOut(tween(80))
+                val motionEnabled = AppSettings.animations(prefs)
+                if (!motionEnabled) {
+                    fadeIn(tween(70)) togetherWith fadeOut(tween(55))
+                } else if (initialState == HubPage.GAME || targetState == HubPage.GAME) {
+                    (fadeIn(tween(110)) + scaleIn(
+                        animationSpec = spring(dampingRatio = .78f, stiffness = 520f),
+                        initialScale = .94f,
+                    )) togetherWith fadeOut(tween(75))
                 } else {
-                    (fadeIn(tween(190)) + scaleIn(tween(190), initialScale = .96f)) togetherWith
-                        (fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 1.015f))
+                    (fadeIn(tween(125)) + scaleIn(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                        initialScale = .90f,
+                    )) togetherWith
+                        (fadeOut(tween(95)) + scaleOut(
+                            animationSpec = spring(dampingRatio = .86f, stiffness = 560f),
+                            targetScale = 1.025f,
+                        ))
                 }
             },
             label = "hub-page",
@@ -307,13 +324,13 @@ private fun WearGamesApp(
                         val plays = prefs.getInt("stat_play_${game.mode}", 0)
                         val wins = prefs.getInt("stat_win_${game.mode}", 0)
                         val losses = prefs.getInt("stat_loss_${game.mode}", 0)
+                        val draws = prefs.getInt("stat_draw_${game.mode}", 0)
                         val streak = prefs.getInt("stat_streak_${game.mode}", 0)
                         val totalTime = prefs.getLong("stat_time_${game.mode}", 0L)
                         val best = readBestMetric(prefs, game.mode)
                         InfoCard(
                             "${game.icon}  ${game.title}",
-                            "游玩 $plays · 胜/完成 $wins · 负 $losses · 连续 $streak\n" +
-                                "时长 ${formatDuration(totalTime)} · 最佳 ${formatBestMetric(game.mode, best)}",
+                            formatRecordSummary(prefs, game.mode, plays, wins, losses, draws, streak, totalTime, best),
                         )
                     }
                 }
@@ -377,20 +394,26 @@ private fun WearGamesApp(
                     }
                     item(key = "animations") {
                         val on = prefs.getBoolean(AppSettings.KEY_ANIMATIONS, true)
-                        ExpressiveCard("游戏动画 · ${if (on) "完整" else "简化"}", "结果卡片、按钮和局内动效", "✦") {
+                        ExpressiveCard("动画效果 · ${if (on) "灵动" else "简化"}", "页面回弹、按钮反馈、结果与局内装饰动效", "✦") {
                             prefs.edit().putBoolean(AppSettings.KEY_ANIMATIONS, !on).apply(); refreshPrefs()
                         }
                     }
                     item(key = "hand") {
                         val left = prefs.getBoolean(AppSettings.KEY_LEFT_HANDED, false)
-                        ExpressiveCard("操作手 · ${if (left) "左手" else "右手"}", "公共控制区会按偏好调整", "↔") {
+                        ExpressiveCard("操作手 · ${if (left) "左手" else "右手"}", "所有公共重开 / 菜单控制会交换到顺手一侧", "↔") {
                             prefs.edit().putBoolean(AppSettings.KEY_LEFT_HANDED, !left).apply(); refreshPrefs()
+                        }
+                    }
+                    item(key = "confirm-move") {
+                        val on = prefs.getBoolean(AppSettings.KEY_MOVE_CONFIRM, true)
+                        ExpressiveCard("棋类落子确认 · ${if (on) "开" else "关"}", "象棋、五子棋、黑白棋、四子棋先预览，再点一次确认", "✓") {
+                            prefs.edit().putBoolean(AppSettings.KEY_MOVE_CONFIRM, !on).apply(); refreshPrefs()
                         }
                     }
                     item(key = "perf") {
                         val current = prefs.getString(AppSettings.KEY_PERFORMANCE, "balanced") ?: "balanced"
                         val label = when (current) { "smooth" -> "流畅"; "saver" -> "省电"; else -> "平衡" }
-                        ExpressiveCard("性能模式 · $label", "流畅 / 平衡 / 省电循环切换", "⚡") {
+                        ExpressiveCard("性能模式 · $label", "流畅跟随屏幕刷新；平衡降负载；省电进一步限帧", "⚡") {
                             val next = when (current) { "balanced" -> "smooth"; "smooth" -> "saver"; else -> "balanced" }
                             prefs.edit().putString(AppSettings.KEY_PERFORMANCE, next).apply(); refreshPrefs()
                         }
@@ -412,9 +435,9 @@ private fun WearGamesApp(
                 ) {
                     item(key = "m3") { InfoCard("Wear Material 3", "首页、分类、设置和战绩继续使用 TransformingLazyColumn、动态颜色与 EdgeButton。") }
                     item(key = "arch") { InfoCard("模块化游戏", "Tetris、Snake、Flappy、Runner、Pong、Breakout、Bounce、Pinball、Dodge、Stack、Simon 已使用独立实时 View；核心棋盘游戏采用 View + Engine。") }
-                    item(key = "perf") { InfoCard("性能策略", "实时玩法按 VSYNC/省电帧率刷新，静态状态停止连续重绘；Release 启用 R8、资源压缩和 Baseline Profile。") }
+                    item(key = "perf") { InfoCard("性能策略", "流畅 / 平衡 / 省电采用不同实时刷新预算，静态状态停止连续重绘；Release 启用 R8、资源压缩和 Baseline Profile。") }
                     item(key = "games") { InfoCard("${games.size} 款游戏", "新增运动竞技与多种独立短局玩法，保持每款至少有独立玩法价值。") }
-                    item(key = "input") { InfoCard("防误触", "游戏区与系统控制区分离，重开和返回均使用二次确认。") }
+                    item(key = "input") { InfoCard("防误触", "游戏区与系统控制区分离；重开、返回以及易误触棋类落子均支持二次确认。") }
                 }
             }
         }
@@ -693,6 +716,22 @@ private fun formatBestMetric(mode: Int, best: Int): String {
         ExpansionGameView.MINI_GOLF -> "$best 杆"
         else -> best.toString()
     }
+}
+
+
+private fun formatRecordSummary(
+    prefs: android.content.SharedPreferences, mode: Int, plays: Int, wins: Int, losses: Int, draws: Int,
+    streak: Int, totalTime: Long, best: Int,
+): String {
+    val outcome = if (mode in setOf(GameModes.XIANGQI, GameModes.GOMOKU, GameModes.TICTACTOE, GameModes.CONNECT4, GameModes.REVERSI, GameModes.NIM, GameModes.ROCK_PAPER_SCISSORS, GameModes.BLACKJACK))
+        "胜 $wins · 负 $losses · 和 $draws" else "完成/胜 $wins · 失败 $losses"
+    val specific = when (mode) {
+        GameModes.BLOCK_DROP -> "最高等级 ${GameStats.readMetric(prefs, mode, "level")} · 最多消行 ${GameStats.readMetric(prefs, mode, "lines")}"
+        GameModes.SNAKE -> "最长长度 ${GameStats.readMetric(prefs, mode, "length")}"
+        GameModes.FLAPPY -> "最多通过 ${GameStats.readMetric(prefs, mode, "pipes")} 根管道"
+        else -> "最佳 ${formatBestMetric(mode, best)}"
+    }
+    return "游玩 $plays · $outcome · 连续 $streak\n时长 ${formatDuration(totalTime)} · $specific"
 }
 
 private fun formatDuration(ms: Long): String {
