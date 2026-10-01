@@ -1,4 +1,4 @@
-WearBoardGames v8.0.0 build matrix
+WearBoardGames v8.0.1 build matrix
 
 Android Gradle Plugin : 8.6.1
 Gradle                : 8.7

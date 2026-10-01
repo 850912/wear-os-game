@@ -1,8 +1,8 @@
 # WearBoardGames v7.4 → v8.0 路线图完成对照
 
-本文件按用户提供的《后续计划》和《WearBoardGames 开发路线图（v7.4 → v8.0）》逐项核对当前 v8.0.0 工程。
+本文件按用户提供的《后续计划》和《WearBoardGames 开发路线图（v7.4 → v8.0）》逐项核对当前 v8.0.1 工程。
 
-| 阶段 | 结果 | v8.0.0 落地内容 |
+| 阶段 | 结果 | v8.0.1 落地内容 |
 |---|---|---|
 | 1. 拆实时动画游戏 | 完成 | Pong / Breakout / Pinball / LaneDodge / Stack / Simon / Bounce 已独立，连同 Tetris / Snake / Flappy / Runner 共 11 个独立实时 View。 |
 | 2. 拆棋盘与益智 | 完成 | 2048 / 象棋 / 五子棋 / 四子棋 / 黑白棋 / 数独 / 扫雷 / 迷宫 / 推箱子采用 View + Engine；其余短局进入轻量分组 View。 |

@@ -1,3 +1,12 @@
+# v8.0.1
+
+## Build / CI 修复
+
+- 修复 Kotlin K2 编译失败：删除错误的 `androidx.compose.foundation.layout.weight` 顶层 import；`Modifier.weight()` 由 `RowScope` / `ColumnScope` 直接解析。
+- 修复 Wear Compose 1.6.2 编译失败：删除错误的 `androidx.wear.compose.foundation.lazy.minimumVerticalContentPadding` 顶层 import；该 API 由 `TransformingLazyColumnItemScope` 直接解析。
+- CI 增加 `assembleDebug` 编译闸门，再执行 Release Lint、单测与 R8 Release 构建。
+- versionCode 20 → 21，versionName 8.0.0 → 8.0.1。
+
 # v8.0.0
 
 ## 架构

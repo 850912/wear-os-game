@@ -1,4 +1,4 @@
-# WearBoardGames v8.0.0 完整改造报告
+# WearBoardGames v8.0.1 完整改造报告
 
 本次按《后续计划》和《WearBoardGames 开发路线图（v7.4 → v8.0）》完成架构、UI/UX、性能、游戏扩展、存档/战绩、测试与 CI 收尾。
 

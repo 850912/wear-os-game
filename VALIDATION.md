@@ -1,4 +1,4 @@
-# v8.0.0 最终验收记录
+# v8.0.1 最终验收记录
 
 ## 当前交付环境已实际执行并通过
 
@@ -16,10 +16,17 @@
 - [x] 81 款游戏每款恰好命中一个运行 View 路由；无旧 Hub fallback。
 - [x] `GameHubView.java` 已从运行源码删除。
 - [x] Manifest + **6 个资源 XML** 全部可解析；**11 个 PNG** 均通过图像完整性检查。
-- [x] **90 个**文本/配置文件通过 UTF-8 与 NUL 字节检查。
+- [x] **92 个**文本/配置文件通过 UTF-8 与 NUL 字节检查。
 - [x] `termux_push_build.sh` 通过 `bash -n` 语法检查。
 - [x] GitHub Actions YAML 可解析，并包含 `lintRelease / testReleaseUnitTest / assembleRelease`。
-- [x] 配置一致性：v8.0.0 / versionCode 20、compile/target SDK 35、R8 + shrinkResources、baselineprofile module。
+- [x] 配置一致性：v8.0.1 / versionCode 21、compile/target SDK 35、R8 + shrinkResources、baselineprofile module。
+
+## v8.0.1 针对 GitHub Actions 失败的修复检查
+
+- [x] 删除 `import androidx.compose.foundation.layout.weight`；`Modifier.weight()` 仅在 `RowScope` / `ColumnScope` 中使用。
+- [x] 删除 `import androidx.wear.compose.foundation.lazy.minimumVerticalContentPadding`；所有调用均位于 `TransformingLazyColumnItemScope`。
+- [x] GitHub Actions 新增 `gradle assembleDebug --no-daemon --stacktrace` 编译闸门。
+- [x] 版本更新为 `8.0.1 / versionCode 21`。
 
 ## 联网核对的官方工具链 / API
 

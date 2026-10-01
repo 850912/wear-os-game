@@ -1,10 +1,10 @@
-# WearBoardGames v8.0.0 交付说明
+# WearBoardGames v8.0.1 交付说明
 
 本交付以用户提供的《后续计划》《WearBoardGames 开发路线图（v7.4 → v8.0）》和 v7.4.0 原始工程为基线，完成架构、UI/UX、游戏扩展、统一存档/战绩、性能工程、测试与 CI 收尾。
 
 ## 交付内容
 
-- 版本：`8.0.0` / `versionCode 20`。
+- 版本：`8.0.1` / `versionCode 21`。
 - **81 款游戏 / 6 分类**；旧 v7.4 mode ID 保持兼容。
 - 运行期删除 `GameHubView`；复杂实时游戏独立 View，核心棋盘/益智采用 View + Engine，短局按类型共享轻量 View。
 - Wear Compose Material 3：首页、分类、收藏、最近、A-Z 查找、设置、战绩。
@@ -24,13 +24,17 @@
 - Kotlin Catalog/route tests：2 passed / 0 failed。
 - 81 游戏 / 6 分类，mode/title 唯一，每款恰好命中一个运行路由。
 - 资源：Manifest + 6 XML 可解析；11 PNG 完整。
-- 90 个文本/配置文件 UTF-8/NUL 检查通过；Termux 脚本语法与 CI YAML 检查通过。
+- 92 个文本/配置文件 UTF-8/NUL 检查通过；Termux 脚本语法与 CI YAML 检查通过。
 
 详细结果见 `VALIDATION.md`；路线图逐项对照见 `ROADMAP_COMPLETION.md`。
 
 ## Android 工具链边界
 
 原始工程没有 Gradle Wrapper；当前沙箱也没有 Android SDK/Gradle 依赖缓存，shell 无法联网取得 distribution，因此不能声称本机已执行 AAPT2、Android Lint、D8/R8 或真实 APK 构建。项目 CI 固定 JDK 17 / Gradle 8.7 / SDK 35，并执行：
+
+`gradle assembleDebug --no-daemon --stacktrace`
+
+随后：
 
 `gradle lintRelease testReleaseUnitTest assembleRelease --no-daemon --stacktrace`
 

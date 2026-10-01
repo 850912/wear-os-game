@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -49,7 +48,6 @@ import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnDefaults
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnItemScope
 import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.foundation.lazy.minimumVerticalContentPadding
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.material3.AppScaffold
@@ -296,7 +294,7 @@ private fun WearGamesApp(
                             Toast.makeText(context, if (sent) "已请求在手机打开" else "未能连接配对手机", Toast.LENGTH_SHORT).show()
                         }
                     }
-                    item(key = "about") { ExpressiveCard("关于", "v8.0.0 · 81 款游戏", "i") { page = HubPage.ABOUT } }
+                    item(key = "about") { ExpressiveCard("关于", "v8.0.1 · 81 款游戏", "i") { page = HubPage.ABOUT } }
                 }
 
                 HubPage.RECORDS -> HubListScreen(
@@ -408,7 +406,7 @@ private fun WearGamesApp(
 
                 HubPage.ABOUT -> HubListScreen(
                     title = "关于",
-                    subtitle = "腕上小游戏 · v8.0.0",
+                    subtitle = "腕上小游戏 · v8.0.1",
                     edgeLabel = "返回",
                     onEdgeClick = { page = HubPage.TOOLS },
                 ) {
@@ -658,7 +656,7 @@ private fun GameHost(
         onDispose {
             when (val view = viewRef.get()) {
                 is BaseGameView -> view.persistCurrentState()
-                    is MicroGameView -> view.persistCurrentState()
+                is MicroGameView -> view.persistCurrentState()
                 is PuzzleMiniView -> view.persistCurrentState()
             }
             viewRef.get()?.keepScreenOn = false

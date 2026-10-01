@@ -1,8 +1,8 @@
-# 腕上小游戏 Wear OS · v8.0.0
+# 腕上小游戏 Wear OS · v8.0.1
 
-面向 Wear OS 小屏/圆屏的离线小游戏合集。v8.0.0 已完成从旧单体 `GameHubView` 到模块化架构的迁移，当前 **81 款游戏 / 6 个分类**。首页、分类、收藏、最近、查找、设置与战绩使用 Wear Compose Material 3；复杂实时游戏使用独立 Canvas View，棋盘游戏采用 View + Engine，短局按类型共享轻量 View。
+面向 Wear OS 小屏/圆屏的离线小游戏合集。v8.0.1 已完成从旧单体 `GameHubView` 到模块化架构的迁移，当前 **81 款游戏 / 6 个分类**。首页、分类、收藏、最近、查找、设置与战绩使用 Wear Compose Material 3；复杂实时游戏使用独立 Canvas View，棋盘游戏采用 View + Engine，短局按类型共享轻量 View。
 
-## v8.0.0 重点
+## v8.0.1 重点
 
 - `GameHubView.java` 已从运行代码删除，不再存在大一统游戏 Hub。
 - 独立实时 View：Tetris、Snake、Flappy、Runner、Pong、Breakout、Bounce、Pinball、Lane Dodge、Stack、Simon。
@@ -13,7 +13,7 @@
 - 统一双确认“重开 / 返回”，系统 Back 也需二次确认；系统控制区和游戏热区分离。
 - Tetris 加入 NEXT、HOLD、软降、硬降、Combo、等级、暂停、触觉与完整状态存档。
 - v7.x 单槽存档可迁移到 v8，Tetris 使用可单测的 v4 状态编解码。
-- CI 执行 `lintRelease → testReleaseUnitTest → assembleRelease`，Release 开启 R8 与资源压缩。
+- CI 执行 `assembleDebug → lintRelease → testReleaseUnitTest → assembleRelease`，Release 开启 R8 与资源压缩。
 
 ## 81 款游戏
 
