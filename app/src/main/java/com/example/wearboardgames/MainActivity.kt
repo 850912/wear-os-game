@@ -372,7 +372,7 @@ private fun WearGamesApp(
                     }
                 }
 
-                HubPage.SETTINGS -> HubListScreen(
+                HubPage.SETTINGS -> key("settings-$prefsRevision") { HubListScreen(
                     title = "设置",
                     subtitle = "所有实时游戏统一读取",
                     edgeLabel = "返回",
@@ -422,7 +422,7 @@ private fun WearGamesApp(
                             prefs.edit().putString(AppSettings.KEY_PERFORMANCE, next).apply(); refreshPrefs()
                         }
                     }
-                }
+                } }
 
                 HubPage.SUPPORT -> HubListScreen(
                     title = "支持作者",

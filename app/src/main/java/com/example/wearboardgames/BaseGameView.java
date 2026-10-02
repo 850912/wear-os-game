@@ -60,6 +60,9 @@ public abstract class BaseGameView extends View {
     private int pressedControl = -1;
     private float downX, downY;
     private boolean downInGame;
+    private boolean pinching;
+    private boolean pinchConsumed;
+    private float pinchDistance;
 
     // Reused geometry: avoid allocating RectF arrays/objects during every watch frame.
     private final RectF restartRect = new RectF();
@@ -140,6 +143,7 @@ public abstract class BaseGameView extends View {
     protected void onGameTouchDown(float x, float y) { }
     protected void onGameTouchMove(float x, float y) { }
     protected void onGameTouchUp(float x, float y) { }
+    protected void onGamePinchZoom(float factor) { }
     protected boolean lowerMetricIsBetter() { return false; }
 
     protected final boolean isSinglePlayer() { return singlePlayer; }
@@ -476,8 +480,27 @@ public abstract class BaseGameView extends View {
             invalidate();
             return true;
         }
+        if (action == MotionEvent.ACTION_POINTER_DOWN) {
+            if (downInGame && event.getPointerCount() >= 2) {
+                pinching = true;
+                pinchDistance = pointerDistance(event);
+            }
+            return true;
+        }
         if (action == MotionEvent.ACTION_MOVE) {
+            if (pinching && event.getPointerCount() >= 2) {
+                float distance = pointerDistance(event);
+                if (pinchDistance > 1f && distance > 1f) onGamePinchZoom(distance / pinchDistance);
+                pinchDistance = distance;
+                invalidate();
+                return true;
+            }
             if (downInGame && pressedControl < 0) onGameTouchMove(x, y);
+            return true;
+        }
+        if (action == MotionEvent.ACTION_POINTER_UP) {
+            if (pinching) pinchConsumed = true;
+            pinching = false;
             return true;
         }
         if (action == MotionEvent.ACTION_CANCEL) {
@@ -487,6 +510,12 @@ public abstract class BaseGameView extends View {
             return true;
         }
         if (action != MotionEvent.ACTION_UP) return true;
+        if (pinching || pinchConsumed) {
+            pinching = false;
+            pinchConsumed = false;
+            downInGame = false;
+            return true;
+        }
 
         if (control >= 0 && control == pressedControl) {
             pressedControl = -1;
@@ -508,5 +537,12 @@ public abstract class BaseGameView extends View {
         else onGameTap(x, y);
         downInGame = false;
         return true;
+    }
+
+    private float pointerDistance(MotionEvent event) {
+        if (event.getPointerCount() < 2) return 0f;
+        float dx = event.getX(0) - event.getX(1);
+        float dy = event.getY(0) - event.getY(1);
+        return (float) Math.hypot(dx, dy);
     }
 }

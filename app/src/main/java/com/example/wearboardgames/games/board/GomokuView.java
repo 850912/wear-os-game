@@ -12,6 +12,7 @@ public final class GomokuView extends BaseGameView {
     private static final int MODE = GameModes.GOMOKU;
     private final GomokuEngine engine = new GomokuEngine();
     private int pendingX = -1, pendingY = -1;
+    private float boardZoom = 1f;
 
     public GomokuView(Context context) { super(context); }
     public static boolean supportsMode(int mode) { return mode == MODE; }
@@ -33,6 +34,8 @@ public final class GomokuView extends BaseGameView {
         float cell = Math.min(b.width(), b.height()) / 15f;
         float size = cell * 14f;
         float left = b.centerX() - size / 2f, top = b.centerY() - size / 2f;
+        c.save();
+        c.scale(boardZoom, boardZoom, b.centerX(), b.centerY());
 
         p.setColor(Color.rgb(199, 158, 101));
         c.drawRoundRect(new RectF(left - cell * .48f, top - cell * .48f,
@@ -65,6 +68,7 @@ public final class GomokuView extends BaseGameView {
             c.drawCircle(left + pendingX * cell, top + pendingY * cell, cell * .48f, p);
             p.setStyle(Paint.Style.FILL);
         }
+        c.restore();
     }
 
     private void drawStone(Canvas c, float cx, float cy, float cell, int who, int alpha) {
@@ -84,6 +88,8 @@ public final class GomokuView extends BaseGameView {
         RectF b = board();
         float cell = Math.min(b.width(), b.height()) / 15f, size = cell * 14f;
         float left = b.centerX() - size / 2f, top = b.centerY() - size / 2f;
+        x = b.centerX() + (x - b.centerX()) / boardZoom;
+        y = b.centerY() + (y - b.centerY()) / boardZoom;
         int gx = Math.round((x - left) / cell), gy = Math.round((y - top) / cell);
         if (gx < 0 || gx >= 15 || gy < 0 || gy >= 15 || engine.at(gx, gy) != 0) return;
 
@@ -104,6 +110,10 @@ public final class GomokuView extends BaseGameView {
             check();
         }
         invalidate();
+    }
+
+    @Override protected void onGamePinchZoom(float factor) {
+        boardZoom = clamp(boardZoom * factor, 1f, 2.2f);
     }
 
     private void clearPreview() { pendingX = pendingY = -1; }

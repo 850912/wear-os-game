@@ -13,6 +13,7 @@ public final class XiangqiView extends BaseGameView {
     private final XiangqiEngine engine = new XiangqiEngine();
     private int sx = -1, sy = -1, pendingTx = -1, pendingTy = -1;
     private boolean over;
+    private float boardZoom = 1f;
 
     public XiangqiView(Context context) { super(context); }
     public static boolean supportsMode(int mode) { return mode == MODE; }
@@ -28,6 +29,8 @@ public final class XiangqiView extends BaseGameView {
         panel(c, b);
         float cell = Math.min(b.width() / 8f, b.height() / 9f), w = cell * 8, h = cell * 9;
         float left = b.centerX() - w / 2f, top = b.centerY() - h / 2f;
+        c.save();
+        c.scale(boardZoom, boardZoom, b.centerX(), b.centerY());
 
         RectF wood = new RectF(left - cell * .34f, top - cell * .28f, left + w + cell * .34f, top + h + cell * .28f);
         p.setColor(Color.rgb(214, 177, 119)); c.drawRoundRect(wood, cell * .28f, cell * .28f, p);
@@ -57,6 +60,7 @@ public final class XiangqiView extends BaseGameView {
             p.setColor(Color.argb(85, 154, 203, 255)); c.drawCircle(cx, cy, cell * .43f, p);
             p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dp(2)); p.setColor(PRIMARY); c.drawCircle(cx, cy, cell * .50f, p); p.setStyle(Paint.Style.FILL);
         }
+        c.restore();
     }
 
     private String name(char p) {
@@ -67,6 +71,8 @@ public final class XiangqiView extends BaseGameView {
         if (over) return;
         RectF b = board(); float cell = Math.min(b.width() / 8f, b.height() / 9f);
         float left = b.centerX() - cell * 4, top = b.centerY() - cell * 4.5f;
+        x = b.centerX() + (x - b.centerX()) / boardZoom;
+        y = b.centerY() + (y - b.centerY()) / boardZoom;
         int tx = Math.round((x - left) / cell), ty = Math.round((y - top) / cell);
         if (tx < 0 || tx > 8 || ty < 0 || ty > 9) return;
 
@@ -94,6 +100,10 @@ public final class XiangqiView extends BaseGameView {
             finishRound(1, result == XiangqiEngine.MoveResult.RED_WINS ? "红方获胜" : "黑方获胜", "完整规则对局", 1);
         }
         invalidate();
+    }
+
+    @Override protected void onGamePinchZoom(float factor) {
+        boardZoom = clamp(boardZoom * factor, 1f, 2.2f);
     }
 
     private void clearSelection() { sx = sy = pendingTx = pendingTy = -1; }
