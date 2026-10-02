@@ -9,8 +9,10 @@
         android:theme="@style/AppTheme"
         android:enableOnBackInvokedCallback="false"
         android:hardwareAccelerated="true">
+        <meta-data android:name="com.google.android.wearable.standalone" android:value="true" />
         <activity
             android:name=".MainActivity"
+            android:taskAffinity="com.example.wearboardgames"
             android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter>

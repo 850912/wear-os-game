@@ -123,7 +123,10 @@ private fun WearGamesApp(
     var prefsRevision by remember { mutableStateOf(0) }
     var gameBackConfirmUntil by remember { mutableLongStateOf(0L) }
     DisposableEffect(prefs) {
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> prefsRevision++ }
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+            if (changed == null || changed.startsWith("setting_") || changed == "favorite_modes" ||
+                changed == "recent_modes" || changed == "has_save" || changed == "last_mode") prefsRevision++
+        }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }

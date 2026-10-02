@@ -279,6 +279,7 @@ public abstract class BaseGameView extends View {
     }
 
     protected final void finishRound(int kind, String title, String subtitle, int metric) {
+        if (resultVisible) return;
         resultKind = kind;
         resultTitle = title;
         resultSubtitle = subtitle;
