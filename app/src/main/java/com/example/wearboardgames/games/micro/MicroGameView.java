@@ -82,6 +82,7 @@ public final class MicroGameView extends View {
     private final RectF centerButtonRect = new RectF();
     private int controlWidth = -1, controlHeight = -1;
     private boolean controlLeftHanded;
+    private boolean animationPosted;
 
     // Precision timer.
     private boolean precisionRunning, precisionDone;
@@ -186,10 +187,11 @@ public final class MicroGameView extends View {
     private float s() { return Math.min(getWidth(), getHeight()); }
     private float contentTop() { return s() * (roundScreen ? .155f : .13f); }
     private float contentBottom() { return getHeight() - dp(50); }
-    private void animateNext() { if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) { long delay=AppSettings.frameDelayMs(prefs); if(delay<=0)postInvalidateOnAnimation(); else postInvalidateDelayed(delay); } }
-    private void invalidateSoon(long delayMs) { if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) postInvalidateDelayed(delayMs); }
+    private void animateNext() { if (isAttachedToWindow() && getWindowVisibility() == VISIBLE && !animationPosted) { animationPosted=true; long delay=AppSettings.frameDelayMs(prefs); if(delay<=0)postInvalidateOnAnimation(); else postInvalidateDelayed(delay); } }
+    private void invalidateSoon(long delayMs) { if (isAttachedToWindow() && getWindowVisibility() == VISIBLE && !animationPosted) { animationPosted=true; postInvalidateDelayed(delayMs); } }
 
     @Override protected void onDraw(Canvas c) {
+        animationPosted = false;
         super.onDraw(c);
         c.drawColor(BG);
         if (AppSettings.richEffects(prefs)) {

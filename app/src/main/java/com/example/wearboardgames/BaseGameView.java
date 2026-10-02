@@ -63,6 +63,7 @@ public abstract class BaseGameView extends View {
     private boolean pinching;
     private boolean pinchConsumed;
     private float pinchDistance;
+    private boolean animationPosted;
 
     // Reused geometry: avoid allocating RectF arrays/objects during every watch frame.
     private final RectF restartRect = new RectF();
@@ -175,13 +176,18 @@ public abstract class BaseGameView extends View {
 
     protected final void animateNext() {
         if (!isAttachedToWindow() || getWindowVisibility() != VISIBLE) return;
+        if (animationPosted) return;
+        animationPosted = true;
         long delay = AppSettings.frameDelayMs(prefs);
         if (delay <= 0L) postInvalidateOnAnimation();
         else postInvalidateDelayed(delay);
     }
 
     protected final void invalidateSoon(long delayMs) {
-        if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) postInvalidateDelayed(delayMs);
+        if (isAttachedToWindow() && getWindowVisibility() == VISIBLE && !animationPosted) {
+            animationPosted = true;
+            postInvalidateDelayed(delayMs);
+        }
     }
 
     /** Starts the common 3-2-1-GO overlay used by reaction/action games. */
@@ -213,6 +219,7 @@ public abstract class BaseGameView extends View {
     }
 
     @Override protected final void onDraw(Canvas canvas) {
+        animationPosted = false;
         super.onDraw(canvas);
         drawBackground(canvas);
         drawGame(canvas);

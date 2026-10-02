@@ -37,8 +37,8 @@ public final class AppSettings {
     public static long frameDelayMs(SharedPreferences prefs) {
         String mode = performance(prefs);
         if ("smooth".equals(mode)) return 0L;
-        if ("saver".equals(mode)) return 50L;      // ~20 fps target
-        return 24L;                                // ~30-40 fps depending on display VSYNC
+        if ("saver".equals(mode)) return 40L;      // ~25 fps target
+        return 16L;                                // ~60 fps target, coalesced by the View scheduler
     }
 
     /** Expensive decorative effects are intentionally omitted in saver mode. */

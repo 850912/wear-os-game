@@ -75,6 +75,7 @@ public final class PuzzleMiniView extends View {
     private final RectF scratchRect2 = new RectF();
     private final RectF resultRect = new RectF();
     private final RectF pressedRect = new RectF();
+    private boolean animationPosted;
     private int controlWidth = -1, controlHeight = -1;
     private boolean controlLeftHanded;
 
@@ -162,14 +163,18 @@ public final class PuzzleMiniView extends View {
     private float contentBottom() { return getHeight() - dp(50); }
 
     private void nextFrame() {
-        if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) {
+        if (isAttachedToWindow() && getWindowVisibility() == VISIBLE && !animationPosted) {
+            animationPosted = true;
             long delay = AppSettings.frameDelayMs(prefs);
             if (delay <= 0L) postInvalidateOnAnimation(); else postInvalidateDelayed(delay);
         }
     }
 
     private void invalidateLater(long delayMs) {
-        if (isAttachedToWindow() && getWindowVisibility() == VISIBLE) postInvalidateDelayed(delayMs);
+        if (isAttachedToWindow() && getWindowVisibility() == VISIBLE && !animationPosted) {
+            animationPosted = true;
+            postInvalidateDelayed(delayMs);
+        }
     }
 
     private RectF board() {
@@ -182,6 +187,7 @@ public final class PuzzleMiniView extends View {
     }
 
     @Override protected void onDraw(Canvas canvas) {
+        animationPosted = false;
         super.onDraw(canvas);
         canvas.drawColor(BG);
         if (AppSettings.richEffects(prefs)) {

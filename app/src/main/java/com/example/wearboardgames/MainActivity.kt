@@ -9,13 +9,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -182,22 +179,15 @@ private fun WearGamesApp(
                 if (!motionEnabled) {
                     fadeIn(tween(70)) togetherWith fadeOut(tween(55))
                 } else if (initialState == HubPage.GAME || targetState == HubPage.GAME) {
-                    (fadeIn(tween(110)) + scaleIn(
-                        animationSpec = spring(dampingRatio = .78f, stiffness = 520f),
-                        initialScale = .94f,
-                    )) togetherWith fadeOut(tween(75))
+                    (fadeIn(tween(100)) + scaleIn(
+                        animationSpec = tween(100),
+                        initialScale = .97f,
+                    )) togetherWith fadeOut(tween(70))
                 } else {
-                    (fadeIn(tween(125)) + scaleIn(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMediumLow,
-                        ),
-                        initialScale = .90f,
-                    )) togetherWith
-                        (fadeOut(tween(95)) + scaleOut(
-                            animationSpec = spring(dampingRatio = .86f, stiffness = 560f),
-                            targetScale = 1.025f,
-                        ))
+                    (fadeIn(tween(115)) + scaleIn(
+                        animationSpec = tween(115),
+                        initialScale = .98f,
+                    )) togetherWith fadeOut(tween(85))
                 }
             },
             label = "hub-page",
