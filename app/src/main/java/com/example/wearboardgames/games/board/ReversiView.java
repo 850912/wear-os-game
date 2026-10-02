@@ -19,7 +19,7 @@ public final class ReversiView extends BaseGameView {
     @Override protected void resetGame() { engine.reset(); clearPreview(); }
 
     @Override protected void drawGame(Canvas c) {
-        playAiTurns();
+        if (engine.winner() == 0) playAiTurns();
         RectF b = board();
         String state = "黑 " + engine.count(1) + " · 白 " + engine.count(2);
         if (engine.winner() == 0) state += pendingX >= 0 ? " · 再点预览格确认" : " · " + (engine.turn() == 1 ? "黑" : "白") + "走";

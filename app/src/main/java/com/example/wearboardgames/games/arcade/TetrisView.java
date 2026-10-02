@@ -22,9 +22,9 @@ public final class TetrisView extends BaseGameView {
             {0x02E0,0x4460,0x0E80,0xC440}
     };
     private static final int[] COLORS = {
-            Color.TRANSPARENT, Color.rgb(88, 210, 239), Color.rgb(255, 218, 91),
-            Color.rgb(193, 126, 255), Color.rgb(91, 220, 149), Color.rgb(255, 112, 128),
-            Color.rgb(105, 151, 255), Color.rgb(255, 166, 91)
+            Color.TRANSPARENT, 0xff58d2ef, 0xffffda5b,
+            0xffc17eff, 0xff5bdc95, 0xffff7080,
+            0xff6997ff, 0xffffa65b
     };
 
     private final int[][] board = new int[H][W];
