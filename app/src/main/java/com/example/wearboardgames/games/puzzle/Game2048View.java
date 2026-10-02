@@ -16,13 +16,13 @@ public final class Game2048View extends BaseGameView {
     private static final String BEST_KEY = "2048_best_score";
 
     // Canonical 2048 palette from the upstream stylesheet.
-    private static final int PAGE_BG = Color.rgb(250, 248, 239);      // #faf8ef
-    private static final int TEXT_DARK = Color.rgb(119, 110, 101);   // #776e65
-    private static final int GRID_BG = Color.rgb(187, 173, 160);     // #bbada0
-    private static final int GRID_CELL = Color.rgb(205, 193, 180);   // visual equivalent of rgba(#eee4da,.35)
-    private static final int LIGHT_TEXT = Color.rgb(249, 246, 242);  // #f9f6f2
-    private static final int SCORE_LABEL = Color.rgb(238, 228, 218); // #eee4da
-    private static final int BUTTON = Color.rgb(143, 122, 102);      // #8f7a66
+    private static final int PAGE_BG = 0xfffaf8ef;      // #faf8ef
+    private static final int TEXT_DARK = 0xff776e65;   // #776e65
+    private static final int GRID_BG = 0xffbbada0;     // #bbada0
+    private static final int GRID_CELL = 0xffcdc1b4;   // visual equivalent of rgba(#eee4da,.35)
+    private static final int LIGHT_TEXT = 0xfff9f6f2;  // #f9f6f2
+    private static final int SCORE_LABEL = 0xffeee4da; // #eee4da
+    private static final int BUTTON = 0xff8f7a66;      // #8f7a66
 
     private static final long SLIDE_MS = 100L;
     private static final long POP_MS = 200L;

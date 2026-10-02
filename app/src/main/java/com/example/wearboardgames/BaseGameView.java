@@ -20,18 +20,18 @@ import android.view.View;
  * physics stay in each concrete View so one game cannot accidentally mutate another one.
  */
 public abstract class BaseGameView extends View {
-    protected static final Typeface NORMAL = Typeface.create("sans", Typeface.NORMAL);
-    protected static final Typeface BOLD = Typeface.create("sans", Typeface.BOLD);
+    protected final Typeface NORMAL = Typeface.create("sans", Typeface.NORMAL);
+    protected final Typeface BOLD = Typeface.create("sans", Typeface.BOLD);
 
-    protected static final int BG = Color.rgb(8, 10, 14);
-    protected static final int SURFACE = Color.rgb(29, 32, 40);
-    protected static final int SURFACE_HIGH = Color.rgb(43, 47, 57);
-    protected static final int PRIMARY = Color.rgb(154, 203, 255);
-    protected static final int SECONDARY = Color.rgb(207, 181, 255);
-    protected static final int GOOD = Color.rgb(104, 219, 159);
-    protected static final int BAD = Color.rgb(255, 118, 127);
-    protected static final int TEXT = Color.rgb(245, 247, 250);
-    protected static final int MUTED = Color.rgb(170, 180, 193);
+    protected static final int BG = 0xff080a0e;
+    protected static final int SURFACE = 0xff1d2028;
+    protected static final int SURFACE_HIGH = 0xff2b2f39;
+    protected static final int PRIMARY = 0xff9acbff;
+    protected static final int SECONDARY = 0xffcfb5ff;
+    protected static final int GOOD = 0xff68db9f;
+    protected static final int BAD = 0xffff767f;
+    protected static final int TEXT = 0xfff5f7fa;
+    protected static final int MUTED = 0xffaab4c1;
 
     protected final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     protected final SharedPreferences prefs;

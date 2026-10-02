@@ -19,6 +19,7 @@ public final class ReversiView extends BaseGameView {
     @Override protected void resetGame() { engine.reset(); clearPreview(); }
 
     @Override protected void drawGame(Canvas c) {
+        playAiTurns();
         RectF b = board();
         String state = "黑 " + engine.count(1) + " · 白 " + engine.count(2);
         if (engine.winner() == 0) state += pendingX >= 0 ? " · 再点预览格确认" : " · " + (engine.turn() == 1 ? "黑" : "白") + "走";
@@ -55,12 +56,18 @@ public final class ReversiView extends BaseGameView {
         clearPreview();
         if (!engine.move(gx, gy)) return;
         haptic(HapticFeedbackConstants.CONFIRM);
-        if (isSinglePlayer() && engine.winner() == 0 && engine.turn() == 2) {
-            int[] move = engine.chooseAiMove(); if (move != null) engine.move(move[0], move[1]);
-        }
+        playAiTurns();
         check(); invalidate();
     }
 
+    private void playAiTurns() {
+        // A pass can leave white on turn after its move; finish all forced AI turns.
+        while (isSinglePlayer() && engine.winner() == 0 && engine.turn() == 2) {
+            int[] move = engine.chooseAiMove();
+            if (move == null || !engine.move(move[0], move[1])) break;
+        }
+        check();
+    }
     private void clearPreview() { pendingX = pendingY = -1; }
     private void check() {
         int w = engine.winner();

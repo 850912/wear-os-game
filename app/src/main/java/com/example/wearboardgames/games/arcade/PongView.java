@@ -73,7 +73,8 @@ public final class PongView extends BaseGameView {
     }
 
     private void control(float x,float y) {
-        RectF b=board(); if (!initialized) init(b,true); if(!running){running=true;beginStartCountdown();} lastTick=now();
+        if (over) return;
+        RectF b=board(); if (!initialized) init(b,true); if(!running){running=true;lastTick=now();beginStartCountdown();}
         if (!isSinglePlayer() && y<b.centerY()) topX=x; else bottomX=x;
         invalidate();
     }

@@ -46,9 +46,9 @@ public final class SnakeView extends BaseGameView {
         p.setColor(Color.rgb(18,29,35));c.drawRoundRect(board,cell*.55f,cell*.55f,p);
         p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1f,cell*.03f));p.setColor(Color.rgb(35,50,56));
         for(int i=1;i<N;i++){c.drawLine(left+i*cell,top,left+i*cell,top+size,p);c.drawLine(left,top+i*cell,left+size,top+i*cell,p);}p.setStyle(Paint.Style.FILL);
-        float pulse=.88f+.12f*(float)Math.sin(now()/135.0);
+        float pulse=richEffectsEnabled() && running ? .88f+.12f*(float)Math.sin(now()/135.0) : 1f;
         p.setColor(Color.rgb(255,102,112));c.drawCircle(left+(foodX+.5f)*cell,top+(foodY+.5f)*cell,cell*.29f*pulse,p);
-        float moveT=moveAnimStart==0?1f:clamp((now()-moveAnimStart)/(float)Math.max(1,moveAnimDuration),0f,1f);
+        float moveT=!animationsEnabled() || moveAnimStart==0?1f:clamp((now()-moveAnimStart)/(float)Math.max(1,moveAnimDuration),0f,1f);
         float eased=1f-(1f-moveT)*(1f-moveT);
         int i=0;for(Cell q:snake){float qx=q.x,qy=q.y;if(i<previousCount){qx=previousX[i]+(q.x-previousX[i])*eased;qy=previousY[i]+(q.y-previousY[i])*eased;}float inset=cell*(i==0 ? .11f : .16f);
             float eatScale=1f;if(i==0&&eatAnimStart>0){float et=clamp((now()-eatAnimStart)/260f,0f,1f);eatScale=1f-.18f*(float)Math.sin(et*Math.PI);if(et<1f)animateNext();else eatAnimStart=0;}
@@ -56,7 +56,7 @@ public final class SnakeView extends BaseGameView {
             if(eatScale<1f){float dx=segmentRect.width()*(1f-eatScale)/2f,dy=segmentRect.height()*(1f-eatScale)/2f;segmentRect.inset(dx,dy);}
             c.drawRoundRect(segmentRect,cell*.21f,cell*.21f,p);i++;}
         if(deathAnimStart>0){float dt=clamp((now()-deathAnimStart)/520f,0f,1f);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(3)*(1f-dt));p.setColor(Color.argb((int)(220*(1f-dt)),255,118,127));c.drawCircle(left+(deathX+.5f)*cell,top+(deathY+.5f)*cell,cell*(.25f+1.6f*dt),p);p.setStyle(Paint.Style.FILL);if(dt<1f)animateNext();else deathAnimStart=0;}
-        if(running&&!over){if(moveT<1f)animateNext();else invalidateSoon(Math.max(16,Math.min(80,nextTick-now())));}
+        if(running&&!over){if(moveT<1f)animateNext();else invalidateSoon(Math.max(16,nextTick-now()));}
     }
 
     private void update(){if(!running||over||startCountdownActive())return;long t=now();if(t<nextTick)return;direction=queuedDirection;advance();nextTick=t+Math.max(105,225-score*7L);}
