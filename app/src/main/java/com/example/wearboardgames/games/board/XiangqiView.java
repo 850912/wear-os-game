@@ -8,31 +8,31 @@ import android.graphics.RectF;
 import android.view.HapticFeedbackConstants;
 
 /** View shell for the pure XiangqiEngine with preview + second-tap move confirmation. */
-public final class XiangqiView extends BaseGameView {
+public final class XiangqiView extends ZoomBoardView {
     private static final int MODE = GameModes.XIANGQI;
     private final XiangqiEngine engine = new XiangqiEngine();
     private int sx = -1, sy = -1, pendingTx = -1, pendingTy = -1;
     private boolean over;
-    private float boardZoom = 1f;
+    private final RectF wood = new RectF();
 
     public XiangqiView(Context context) { super(context); }
     public static boolean supportsMode(int mode) { return mode == MODE; }
     @Override protected int gameMode() { return MODE; }
-    private RectF board() { return gamePanel(roundScreen ? .16f : .12f); }
+    @Override protected RectF board() { return gamePanel(roundScreen ? .12f : .09f); }
 
-    @Override protected void resetGame() { engine.reset(); clearSelection(); over = false; }
+    @Override protected void resetGame() { cancelAi(); viewport.reset(); engine.reset(); clearSelection(); over = false; }
 
     @Override protected void drawGame(Canvas c) {
+        startAi();
         RectF b = board();
-        String state = over ? "本局结束" : pendingTx >= 0 ? "再次点击目标确认" : engine.isRedTurn() ? "红方走" : "黑方走";
+        String state = aiThinking ? "黑方思考中" : over ? "本局结束" : pendingTx >= 0 ? "再次点击目标确认" : engine.isRedTurn() ? "红方走" : "黑方走";
         drawHeader(c, "中国象棋", state);
         panel(c, b);
         float cell = Math.min(b.width() / 8f, b.height() / 9f), w = cell * 8, h = cell * 9;
         float left = b.centerX() - w / 2f, top = b.centerY() - h / 2f;
-        c.save();
-        c.scale(boardZoom, boardZoom, b.centerX(), b.centerY());
+        beginBoard(c, b);
 
-        RectF wood = new RectF(left - cell * .34f, top - cell * .28f, left + w + cell * .34f, top + h + cell * .28f);
+        wood.set(left-cell*.34f, top-cell*.28f, left+w+cell*.34f, top+h+cell*.28f);
         p.setColor(Color.rgb(214, 177, 119)); c.drawRoundRect(wood, cell * .28f, cell * .28f, p);
         p.setColor(Color.rgb(113, 76, 43)); p.setStrokeWidth(Math.max(1f, dp(.8f)));
         for (int x = 0; x < 9; x++) c.drawLine(left + x * cell, top, left + x * cell, top + h, p);
@@ -60,7 +60,7 @@ public final class XiangqiView extends BaseGameView {
             p.setColor(Color.argb(85, 154, 203, 255)); c.drawCircle(cx, cy, cell * .43f, p);
             p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dp(2)); p.setColor(PRIMARY); c.drawCircle(cx, cy, cell * .50f, p); p.setStyle(Paint.Style.FILL);
         }
-        c.restore();
+        endBoard(c);
     }
 
     private String name(char p) {
@@ -68,11 +68,11 @@ public final class XiangqiView extends BaseGameView {
     }
 
     @Override protected void onGameTap(float x, float y) {
-        if (over) return;
+        if (over || (isSinglePlayer() && !engine.isRedTurn())) return;
         RectF b = board(); float cell = Math.min(b.width() / 8f, b.height() / 9f);
         float left = b.centerX() - cell * 4, top = b.centerY() - cell * 4.5f;
-        x = b.centerX() + (x - b.centerX()) / boardZoom;
-        y = b.centerY() + (y - b.centerY()) / boardZoom;
+        x = viewport.boardX(x, b.centerX());
+        y = viewport.boardY(y, b.centerY());
         int tx = Math.round((x - left) / cell), ty = Math.round((y - top) / cell);
         if (tx < 0 || tx > 8 || ty < 0 || ty > 9) return;
 
@@ -99,14 +99,27 @@ public final class XiangqiView extends BaseGameView {
             over = true;
             finishRound(1, result == XiangqiEngine.MoveResult.RED_WINS ? "红方获胜" : "黑方获胜", "完整规则对局", 1);
         }
+        startAi();
         invalidate();
     }
 
-    @Override protected void onGamePinchZoom(float factor) {
-        boardZoom = clamp(boardZoom * factor, 1f, 2.2f);
+    private void startAi() {
+        if (over || !isSinglePlayer() || engine.isRedTurn() || aiThinking) return;
+        final String snapshot = engine.serialize();
+        requestAi(() -> {
+            XiangqiEngine copy = new XiangqiEngine();
+            if (!copy.restore(snapshot)) throw new IllegalStateException("Invalid Xiangqi snapshot");
+            return copy.chooseAiMove();
+        }, move -> {
+            if (move == null) { over = true; finishRound(1, "红方获胜", "黑方无合法走法", 1); return; }
+            XiangqiEngine.MoveResult result = engine.move(move[0], move[1], move[2], move[3]);
+            if (result == XiangqiEngine.MoveResult.BLACK_WINS) {
+                over = true; finishRound(-1, "黑方获胜", "本局结束", 1);
+            }
+        });
     }
 
     private void clearSelection() { sx = sy = pendingTx = pendingTy = -1; }
-    @Override protected void saveGame() { if (over) { clearSavedGameIfMine(); return; } GameSaveManager.save(prefs, MODE, 1, false, engine.serialize()); }
-    @Override protected boolean restoreGame() { GameSaveManager.SaveRecord r = GameSaveManager.load(prefs, MODE); if (r == null) return false; over = false; clearSelection(); return engine.restore(r.payload); }
+    @Override protected void saveGame() { if (over) { clearSavedGameIfMine(); return; } GameSaveManager.save(prefs, MODE, 1, isSinglePlayer(), engine.serialize()); }
+    @Override protected boolean restoreGame() { cancelAi(); viewport.reset(); GameSaveManager.SaveRecord r = GameSaveManager.load(prefs, MODE); if (r == null) return false; over = false; clearSelection(); return engine.restore(r.payload); }
 }

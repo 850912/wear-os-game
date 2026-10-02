@@ -1,5 +1,12 @@
 # Third-party notices
 
+## chesslib
+
+International chess rules use chesslib 1.3.4 by Ben-Hur Carlos Vieira Langoni Junior.
+Source: https://github.com/bhlangonijr/chesslib
+License: Apache License 2.0, https://www.apache.org/licenses/LICENSE-2.0
+The dependency includes its upstream license and notices. No upstream source is modified.
+
 ## 2048
 
 The Wear OS 2048 renderer intentionally ports the visual palette, score presentation, tile movement timing, appear animation and merge-pop behavior of the original **2048** project while keeping the game engine/rendering native for Wear OS performance.

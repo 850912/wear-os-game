@@ -8,12 +8,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
@@ -37,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -71,7 +69,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AppLog.i("MainActivity onCreate; version=8.0.2")
+        AppLog.i("MainActivity onCreate; version=8.1.0")
         window.navigationBarColor = Color.BLACK
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
@@ -101,8 +99,6 @@ class MainActivity : ComponentActivity() {
         AppLog.i("MainActivity onPause; activeView=${activeGameView?.javaClass?.simpleName ?: "none"}")
         when (val view = activeGameView) {
             is BaseGameView -> view.persistCurrentState()
-            is MicroGameView -> view.persistCurrentState()
-            is PuzzleMiniView -> view.persistCurrentState()
         }
         super.onPause()
     }
@@ -126,6 +122,11 @@ private fun WearGamesApp(
     var resume by remember { mutableStateOf(false) }
     var prefsRevision by remember { mutableStateOf(0) }
     var gameBackConfirmUntil by remember { mutableLongStateOf(0L) }
+    DisposableEffect(prefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> prefsRevision++ }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     fun refreshPrefs() { prefsRevision++ }
     fun enterGame(game: GameDef, asResume: Boolean = false, forceSingle: Boolean? = null) {
@@ -172,26 +173,12 @@ private fun WearGamesApp(
     }
 
     AppScaffold(timeText = { if (page != HubPage.GAME) TimeText() }) {
-        AnimatedContent(
-            targetState = page,
-            transitionSpec = {
-                val motionEnabled = AppSettings.animations(prefs)
-                if (!motionEnabled) {
-                    fadeIn(tween(70)) togetherWith fadeOut(tween(55))
-                } else if (initialState == HubPage.GAME || targetState == HubPage.GAME) {
-                    (fadeIn(tween(100)) + scaleIn(
-                        animationSpec = tween(100),
-                        initialScale = .97f,
-                    )) togetherWith fadeOut(tween(70))
-                } else {
-                    (fadeIn(tween(115)) + scaleIn(
-                        animationSpec = tween(115),
-                        initialScale = .98f,
-                    )) togetherWith fadeOut(tween(85))
-                }
-            },
-            label = "hub-page",
-        ) { targetPage ->
+        key(page) {
+            val motionEnabled = AppSettings.animations(prefs) && !AppSettings.saver(prefs)
+            val opacity = remember { Animatable(if (motionEnabled && page != HubPage.GAME) .75f else 1f) }
+            LaunchedEffect(Unit) { opacity.animateTo(1f, tween(120)) }
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = opacity.value }) {
+            val targetPage = page
             @Suppress("UNUSED_EXPRESSION")
             prefsRevision
             when (targetPage) {
@@ -305,7 +292,7 @@ private fun WearGamesApp(
                             Toast.makeText(context, if (sent) "已请求在手机打开" else "未能连接配对手机", Toast.LENGTH_SHORT).show()
                         }
                     }
-                    item(key = "about") { ExpressiveCard("关于", "v8.0.2 · 81 款游戏", "i") { page = HubPage.ABOUT } }
+                    item(key = "about") { ExpressiveCard("关于", "v8.1.0 · ${games.size} 款游戏", "i") { page = HubPage.ABOUT } }
                 }
 
                 HubPage.RECORDS -> HubListScreen(
@@ -362,49 +349,49 @@ private fun WearGamesApp(
                     }
                 }
 
-                HubPage.SETTINGS -> key("settings-$prefsRevision") { HubListScreen(
+                HubPage.SETTINGS -> HubListScreen(
                     title = "设置",
                     subtitle = "所有实时游戏统一读取",
                     edgeLabel = "返回",
                     onEdgeClick = { page = HubPage.TOOLS },
                 ) {
-                    item(key = "dynamic") {
+                    item(key = "dynamic-$prefsRevision") {
                         val on = prefs.getBoolean(AppSettings.KEY_DYNAMIC_COLOR, true)
                         ExpressiveCard("动态颜色 · ${if (on) "开" else "关"}", "跟随手表系统配色", "◐") {
                             prefs.edit().putBoolean(AppSettings.KEY_DYNAMIC_COLOR, !on).apply(); refreshPrefs(); onThemeSettingChanged()
                         }
                     }
-                    item(key = "haptics") {
+                    item(key = "haptics-$prefsRevision") {
                         val on = prefs.getBoolean(AppSettings.KEY_HAPTICS, true)
                         ExpressiveCard("触觉反馈 · ${if (on) "开" else "关"}", "点击、得分、碰撞统一管理", "〰") {
                             prefs.edit().putBoolean(AppSettings.KEY_HAPTICS, !on).apply(); refreshPrefs()
                         }
                     }
-                    item(key = "sound") {
+                    item(key = "sound-$prefsRevision") {
                         val on = prefs.getBoolean(AppSettings.KEY_SOUND, false)
                         ExpressiveCard("声音 · ${if (on) "开" else "关"}", "默认静音，开启后只播放短提示音", "♪") {
                             prefs.edit().putBoolean(AppSettings.KEY_SOUND, !on).apply(); refreshPrefs()
                         }
                     }
-                    item(key = "animations") {
+                    item(key = "animations-$prefsRevision") {
                         val on = prefs.getBoolean(AppSettings.KEY_ANIMATIONS, true)
-                        ExpressiveCard("动画效果 · ${if (on) "灵动" else "简化"}", "页面回弹、按钮反馈、结果与局内装饰动效", "✦") {
+                        ExpressiveCard("动画效果 · ${if (on) "开" else "关"}", "落子、按钮和游戏结果", "✦") {
                             prefs.edit().putBoolean(AppSettings.KEY_ANIMATIONS, !on).apply(); refreshPrefs()
                         }
                     }
-                    item(key = "hand") {
+                    item(key = "hand-$prefsRevision") {
                         val left = prefs.getBoolean(AppSettings.KEY_LEFT_HANDED, false)
                         ExpressiveCard("操作手 · ${if (left) "左手" else "右手"}", "所有公共重开 / 菜单控制会交换到顺手一侧", "↔") {
                             prefs.edit().putBoolean(AppSettings.KEY_LEFT_HANDED, !left).apply(); refreshPrefs()
                         }
                     }
-                    item(key = "confirm-move") {
+                    item(key = "confirm-move-$prefsRevision") {
                         val on = prefs.getBoolean(AppSettings.KEY_MOVE_CONFIRM, true)
                         ExpressiveCard("棋类落子确认 · ${if (on) "开" else "关"}", "象棋、五子棋、黑白棋、四子棋先预览，再点一次确认", "✓") {
                             prefs.edit().putBoolean(AppSettings.KEY_MOVE_CONFIRM, !on).apply(); refreshPrefs()
                         }
                     }
-                    item(key = "perf") {
+                    item(key = "perf-$prefsRevision") {
                         val current = prefs.getString(AppSettings.KEY_PERFORMANCE, "balanced") ?: "balanced"
                         val label = when (current) { "smooth" -> "流畅"; "saver" -> "省电"; else -> "平衡" }
                         ExpressiveCard("性能模式 · $label", "流畅跟随屏幕刷新；平衡降负载；省电进一步限帧", "⚡") {
@@ -412,7 +399,7 @@ private fun WearGamesApp(
                             prefs.edit().putString(AppSettings.KEY_PERFORMANCE, next).apply(); refreshPrefs()
                         }
                     }
-                } }
+                }
 
                 HubPage.SUPPORT -> HubListScreen(
                     title = "支持作者",
@@ -423,16 +410,17 @@ private fun WearGamesApp(
 
                 HubPage.ABOUT -> HubListScreen(
                     title = "关于",
-                    subtitle = "腕上小游戏 · v8.0.2",
+                    subtitle = "腕上小游戏 · v8.1.0",
                     edgeLabel = "返回",
                     onEdgeClick = { page = HubPage.TOOLS },
                 ) {
                     item(key = "m3") { InfoCard("Wear Material 3", "首页、分类、设置和战绩继续使用 TransformingLazyColumn、动态颜色与 EdgeButton。") }
                     item(key = "arch") { InfoCard("模块化游戏", "Tetris、Snake、Flappy、Runner、Pong、Breakout、Bounce、Pinball、Dodge、Stack、Simon 已使用独立实时 View；核心棋盘游戏采用 View + Engine。") }
-                    item(key = "perf") { InfoCard("性能策略", "流畅 / 平衡 / 省电采用不同实时刷新预算，静态状态停止连续重绘；Release 启用 R8、资源压缩和 Baseline Profile。") }
-                    item(key = "games") { InfoCard("${games.size} 款游戏", "新增运动竞技与多种独立短局玩法，保持每款至少有独立玩法价值。") }
+                    item(key = "perf-$prefsRevision") { InfoCard("性能策略", "流畅 / 平衡 / 省电采用不同实时刷新预算，静态状态停止连续重绘；Release 启用 R8、资源压缩和 Baseline Profile。") }
+                    item(key = "games") { InfoCard("${games.size} 款游戏", "棋类、经典街机和益智游戏。") }
                     item(key = "input") { InfoCard("防误触", "游戏区与系统控制区分离；重开、返回以及易误触棋类落子均支持二次确认。") }
                 }
+            }
             }
         }
     }
@@ -474,8 +462,7 @@ private fun HubListScreen(
                             ListHeaderDefaults.minimumTopListContentPadding,
                             ListHeaderDefaults.minimumBottomListContentPadding,
                         )
-                        .fillMaxWidth()
-                        .animateItem(),
+                        .fillMaxWidth(),
                     transformation = SurfaceTransformation(transformationSpec),
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -512,8 +499,7 @@ private fun TransformingLazyColumnItemScope.ExpressiveCard(
         modifier = Modifier
             .transformedHeight(this, transformationSpec)
             .minimumVerticalContentPadding(CardDefaults.minimumVerticalListContentPadding)
-            .fillMaxWidth()
-            .animateItem(),
+            .fillMaxWidth(),
         transformation = SurfaceTransformation(transformationSpec),
     ) { CardContents(title, subtitle, icon) }
 }
@@ -533,8 +519,7 @@ private fun TransformingLazyColumnItemScope.GameCard(
         modifier = Modifier
             .transformedHeight(this, transformationSpec)
             .minimumVerticalContentPadding(CardDefaults.minimumVerticalListContentPadding)
-            .fillMaxWidth()
-            .animateItem(),
+            .fillMaxWidth(),
         transformation = SurfaceTransformation(transformationSpec),
     ) {
         CardContents(
@@ -572,8 +557,7 @@ private fun TransformingLazyColumnItemScope.InfoCard(title: String, body: String
         modifier = Modifier
             .transformedHeight(this, transformationSpec)
             .minimumVerticalContentPadding(CardDefaults.minimumVerticalListContentPadding)
-            .fillMaxWidth()
-            .animateItem(),
+            .fillMaxWidth(),
         transformation = SurfaceTransformation(transformationSpec),
     ) {
         Text(title, style = MaterialTheme.typography.titleSmall)
@@ -588,8 +572,7 @@ private fun TransformingLazyColumnItemScope.SupportAuthorCard() {
         modifier = Modifier
             .transformedHeight(this, transformationSpec)
             .minimumVerticalContentPadding(CardDefaults.minimumVerticalListContentPadding)
-            .fillMaxWidth()
-            .animateItem(),
+            .fillMaxWidth(),
         transformation = SurfaceTransformation(transformationSpec),
     ) {
         Column(
@@ -643,6 +626,7 @@ private fun GameHost(
                     StackView.supportsMode(game.mode) -> attach(StackView(context))
                     SimonView.supportsMode(game.mode) -> attach(SimonView(context))
                     XiangqiView.supportsMode(game.mode) -> attach(XiangqiView(context))
+                    ChessView.supportsMode(game.mode) -> attach(ChessView(context))
                     Game2048View.supportsMode(game.mode) -> attach(Game2048View(context))
                     GomokuView.supportsMode(game.mode) -> attach(GomokuView(context))
                     Connect4View.supportsMode(game.mode) -> attach(Connect4View(context))
@@ -651,19 +635,7 @@ private fun GameHost(
                     MinesView.supportsMode(game.mode) -> attach(MinesView(context))
                     MazeView.supportsMode(game.mode) -> attach(MazeView(context))
                     SokobanView.supportsMode(game.mode) -> attach(SokobanView(context))
-                    ExpansionGameView.supportsMode(game.mode) -> attach(ExpansionGameView(context))
-                    V8MiniGameView.supportsMode(game.mode) -> attach(V8MiniGameView(context))
                     ClassicMiniGameView.supportsMode(game.mode) -> attach(ClassicMiniGameView(context))
-                    MicroGameView.supportsMode(game.mode) -> MicroGameView(context).also { view ->
-                        view.keepScreenOn = true; viewRef.set(view)
-                        view.setHostListener(object : MicroGameView.HostListener { override fun onExitToHub() = onExit() })
-                        onGameViewChanged(view); view.post { view.openGame(game.mode, singlePlayer) }
-                    }
-                    PuzzleMiniView.supportsMode(game.mode) -> PuzzleMiniView(context).also { view ->
-                        view.keepScreenOn = true; viewRef.set(view)
-                        view.setHostListener(object : PuzzleMiniView.HostListener { override fun onExitToHub() = onExit() })
-                        onGameViewChanged(view); view.post { view.openGame(game.mode, singlePlayer) }
-                    }
                     else -> error("Unsupported game mode: ${game.mode}")
                 }
             },
@@ -673,8 +645,6 @@ private fun GameHost(
         onDispose {
             when (val view = viewRef.get()) {
                 is BaseGameView -> view.persistCurrentState()
-                is MicroGameView -> view.persistCurrentState()
-                is PuzzleMiniView -> view.persistCurrentState()
             }
             viewRef.get()?.keepScreenOn = false
             viewRef.set(null)
@@ -694,8 +664,7 @@ private fun categoryIcon(name: String): String = when (name) {
 
 private fun usesLowerMetric(mode: Int): Boolean = mode == GameModes.SLIDE_PUZZLE ||
     mode == GameModes.LIGHTS_OUT || mode == GameModes.MEMORY_MATCH ||
-    mode == GameModes.MAZE || mode == GameModes.NUMBER_TAP || mode == GameModes.SOKOBAN ||
-    mode == ExpansionGameView.MINI_GOLF
+    mode == GameModes.MAZE || mode == GameModes.NUMBER_TAP || mode == GameModes.SOKOBAN
 
 private fun readBestMetric(prefs: android.content.SharedPreferences, mode: Int): Int =
     prefs.getInt(if (usesLowerMetric(mode)) "stat_low_$mode" else "stat_best_$mode", 0)
@@ -706,8 +675,7 @@ private fun formatBestMetric(mode: Int, best: Int): String {
         GameModes.NUMBER_TAP -> String.format(java.util.Locale.US, "%.1f 秒", best / 1000f)
         GameModes.SLIDE_PUZZLE, GameModes.LIGHTS_OUT, GameModes.MAZE, GameModes.SOKOBAN -> "$best 步"
         GameModes.MEMORY_MATCH -> "$best 次"
-        GameModes.SIMON, ExpansionGameView.MEMORY_SEQUENCE -> "$best 轮"
-        ExpansionGameView.MINI_GOLF -> "$best 杆"
+        GameModes.SIMON -> "$best 轮"
         else -> best.toString()
     }
 }
@@ -717,7 +685,7 @@ private fun formatRecordSummary(
     prefs: android.content.SharedPreferences, mode: Int, plays: Int, wins: Int, losses: Int, draws: Int,
     streak: Int, totalTime: Long, best: Int,
 ): String {
-    val outcome = if (mode in setOf(GameModes.XIANGQI, GameModes.GOMOKU, GameModes.TICTACTOE, GameModes.CONNECT4, GameModes.REVERSI, GameModes.NIM, GameModes.ROCK_PAPER_SCISSORS, GameModes.BLACKJACK))
+    val outcome = if (mode in setOf(GameModes.XIANGQI, GameModes.CHESS, GameModes.GOMOKU, GameModes.TICTACTOE, GameModes.CONNECT4, GameModes.REVERSI, GameModes.NIM, GameModes.ROCK_PAPER_SCISSORS, GameModes.BLACKJACK))
         "胜 $wins · 负 $losses · 和 $draws" else "完成/胜 $wins · 失败 $losses"
     val specific = when (mode) {
         GameModes.BLOCK_DROP -> "最高等级 ${GameStats.readMetric(prefs, mode, "level")} · 最多消行 ${GameStats.readMetric(prefs, mode, "lines")}"

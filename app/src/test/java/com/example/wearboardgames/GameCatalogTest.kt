@@ -7,7 +7,7 @@ import org.junit.Test
 class GameCatalogTest {
     @Test
     fun catalogHasUniqueModesAndValidCategories() {
-        assertTrue("v8 catalog should contain at least 80 distinct games", games.size >= 80)
+        assertEquals("curated catalog", 29, games.size)
         assertEquals(games.size, games.map { it.mode }.toSet().size)
         assertEquals(games.size, games.map { it.title }.toSet().size)
         val categoryNames = categories.map { it.first }.toSet()
@@ -33,6 +33,7 @@ class GameCatalogTest {
                 SimonView.supportsMode(game.mode),
                 Game2048View.supportsMode(game.mode),
                 XiangqiView.supportsMode(game.mode),
+                ChessView.supportsMode(game.mode),
                 GomokuView.supportsMode(game.mode),
                 Connect4View.supportsMode(game.mode),
                 ReversiView.supportsMode(game.mode),
@@ -40,11 +41,7 @@ class GameCatalogTest {
                 MinesView.supportsMode(game.mode),
                 MazeView.supportsMode(game.mode),
                 SokobanView.supportsMode(game.mode),
-                ExpansionGameView.supportsMode(game.mode),
-                V8MiniGameView.supportsMode(game.mode),
                 ClassicMiniGameView.supportsMode(game.mode),
-                MicroGameView.supportsMode(game.mode),
-                PuzzleMiniView.supportsMode(game.mode),
             ).count { it }
             assertEquals("route count for ${game.title} (${game.mode})", 1, matches)
         }

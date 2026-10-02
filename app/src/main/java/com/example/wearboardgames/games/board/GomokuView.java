@@ -8,25 +8,27 @@ import android.graphics.RectF;
 import android.view.HapticFeedbackConstants;
 
 /** 15x15 Gomoku View + pure engine, with optional tap-twice placement confirmation. */
-public final class GomokuView extends BaseGameView {
+public final class GomokuView extends ZoomBoardView {
     private static final int MODE = GameModes.GOMOKU;
     private final GomokuEngine engine = new GomokuEngine();
     private int pendingX = -1, pendingY = -1;
-    private float boardZoom = 1f;
+    private final RectF wood = new RectF();
 
     public GomokuView(Context context) { super(context); }
     public static boolean supportsMode(int mode) { return mode == MODE; }
     @Override protected int gameMode() { return MODE; }
-    private RectF board() { return gamePanel(roundScreen ? .08f : .06f); }
+    @Override protected RectF board() { return gamePanel(roundScreen ? .08f : .06f); }
 
     @Override protected void resetGame() {
+        cancelAi(); viewport.reset();
         engine.reset();
         clearPreview();
     }
 
     @Override protected void drawGame(Canvas c) {
+        startAi();
         RectF b = board();
-        String state = engine.winner() != 0 ? "本局结束" :
+        String state = aiThinking ? "白方思考中" : engine.winner() != 0 ? "本局结束" :
                 pendingX >= 0 ? "再次点击预览位置确认" : (engine.turn() == 1 ? "黑方" : "白方") + "走";
         drawHeader(c, "五子棋", state);
         panel(c, b);
@@ -34,12 +36,11 @@ public final class GomokuView extends BaseGameView {
         float cell = Math.min(b.width(), b.height()) / 15f;
         float size = cell * 14f;
         float left = b.centerX() - size / 2f, top = b.centerY() - size / 2f;
-        c.save();
-        c.scale(boardZoom, boardZoom, b.centerX(), b.centerY());
+        beginBoard(c, b);
 
         p.setColor(Color.rgb(199, 158, 101));
-        c.drawRoundRect(new RectF(left - cell * .48f, top - cell * .48f,
-                left + size + cell * .48f, top + size + cell * .48f), cell * .24f, cell * .24f, p);
+        wood.set(left-cell*.48f, top-cell*.48f, left+size+cell*.48f, top+size+cell*.48f);
+        c.drawRoundRect(wood, cell*.24f, cell*.24f, p);
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(Math.max(1f, dp(.8f)));
         p.setColor(Color.rgb(96, 67, 39));
@@ -68,7 +69,7 @@ public final class GomokuView extends BaseGameView {
             c.drawCircle(left + pendingX * cell, top + pendingY * cell, cell * .48f, p);
             p.setStyle(Paint.Style.FILL);
         }
-        c.restore();
+        endBoard(c);
     }
 
     private void drawStone(Canvas c, float cx, float cy, float cell, int who, int alpha) {
@@ -84,12 +85,12 @@ public final class GomokuView extends BaseGameView {
     }
 
     @Override protected void onGameTap(float x, float y) {
-        if (engine.winner() != 0) return;
+        if (engine.winner() != 0 || (isSinglePlayer() && engine.turn() == 2)) return;
         RectF b = board();
         float cell = Math.min(b.width(), b.height()) / 15f, size = cell * 14f;
         float left = b.centerX() - size / 2f, top = b.centerY() - size / 2f;
-        x = b.centerX() + (x - b.centerX()) / boardZoom;
-        y = b.centerY() + (y - b.centerY()) / boardZoom;
+        x = viewport.boardX(x, b.centerX());
+        y = viewport.boardY(y, b.centerY());
         int gx = Math.round((x - left) / cell), gy = Math.round((y - top) / cell);
         if (gx < 0 || gx >= 15 || gy < 0 || gy >= 15 || engine.at(gx, gy) != 0) return;
 
@@ -104,16 +105,21 @@ public final class GomokuView extends BaseGameView {
         if (!engine.place(gx, gy)) return;
         haptic(HapticFeedbackConstants.CONFIRM);
         check();
-        if (isSinglePlayer() && engine.winner() == 0 && engine.turn() == 2) {
-            int[] move = engine.chooseAiMove();
-            if (move != null) engine.place(move[0], move[1]);
-            check();
-        }
+        startAi();
         invalidate();
     }
 
-    @Override protected void onGamePinchZoom(float factor) {
-        boardZoom = clamp(boardZoom * factor, 1f, 2.2f);
+    private void startAi() {
+        if (!isSinglePlayer() || engine.winner() != 0 || engine.turn() != 2 || aiThinking) return;
+        final String snapshot = engine.serialize();
+        requestAi(() -> {
+            GomokuEngine copy = new GomokuEngine();
+            if (!copy.restore(snapshot)) throw new IllegalStateException("Invalid Gomoku snapshot");
+            return copy.chooseAiMove();
+        }, move -> {
+            if (move != null) engine.place(move[0], move[1]);
+            check();
+        });
     }
 
     private void clearPreview() { pendingX = pendingY = -1; }
@@ -130,6 +136,7 @@ public final class GomokuView extends BaseGameView {
     }
 
     @Override protected boolean restoreGame() {
+        cancelAi(); viewport.reset();
         clearPreview();
         GameSaveManager.SaveRecord r = GameSaveManager.load(prefs, MODE);
         if (r == null) return false;

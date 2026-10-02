@@ -20,16 +20,7 @@ public class GameModesCompatibilityTest {
         for (int[] pair : expected) assertEquals(pair[1], pair[0]);
     }
 
-    @Test public void v74GroupedIdsRemainStable() {
-        assertEquals(41, MicroGameView.PRECISION_TIMER); assertEquals(42, MicroGameView.LEFT_RIGHT);
-        assertEquals(43, MicroGameView.STAR_CATCH); assertEquals(44, MicroGameView.METEOR_DODGE);
-        assertEquals(45, MicroGameView.LUNAR_LANDER); assertEquals(46, MicroGameView.BUBBLE_POP);
-        assertEquals(47, MicroGameView.RHYTHM_TAP); assertEquals(48, MicroGameView.SPIN_LOCK);
-        assertEquals(49, MicroGameView.MEMORY_PATH); assertEquals(50, MicroGameView.NUMBER_SORT);
-        assertEquals(51, MicroGameView.COLOR_STROOP); assertEquals(52, MicroGameView.ODD_EVEN);
-        assertEquals(53, PuzzleMiniView.TARGET_TAP); assertEquals(54, PuzzleMiniView.SWIPE_ARROW);
-        assertEquals(55, PuzzleMiniView.STOP_BAR); assertEquals(56, PuzzleMiniView.PAIR_SUM);
-        assertEquals(57, PuzzleMiniView.SEQUENCE_NEXT); assertEquals(58, PuzzleMiniView.SHAPE_MATCH);
-        assertEquals(59, PuzzleMiniView.QUICK_COUNT); assertEquals(60, PuzzleMiniView.SAFE_ZONE);
+    @Test public void newChessIdDoesNotReuseRemovedGameIds() {
+        assertEquals(1001, GameModes.CHESS);
     }
 }

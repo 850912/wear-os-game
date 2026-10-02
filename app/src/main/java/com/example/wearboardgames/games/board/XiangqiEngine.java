@@ -150,6 +150,43 @@ public final class XiangqiEngine {
         return MoveResult.OK;
     }
 
+    /** Cheap watch-friendly opponent: captures first, then centralizing moves. */
+    public int[] chooseAiMove() {
+        boolean old = redTurn;
+        if (old) return null;
+        int[] best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (int sy=0; sy<ROWS; sy++) for (int sx=0; sx<COLS; sx++) {
+            if (Thread.currentThread().isInterrupted()) return best;
+            if (!belongsToTurn(sx, sy)) continue;
+            for (int ty=0; ty<ROWS; ty++) for (int tx=0; tx<COLS; tx++) {
+                if (!isLegalMove(sx, sy, tx, ty)) continue;
+                char target = board[ty][tx];
+                int score = target == 0 ? 0 : 100 + pieceValue(Character.toUpperCase(target));
+                score -= Math.abs(tx - 4) + Math.abs(ty - 4);
+                char moving = board[sy][sx];
+                board[sy][sx] = 0; board[ty][tx] = moving;
+                if (isInCheck(true)) score += 45;
+                boolean threatened = false;
+                for (int y=0; y<ROWS && !threatened; y++) for (int x=0; x<COLS; x++) {
+                    char attacker = board[y][x];
+                    if (attacker != 0 && isRedPiece(attacker) && pieceCanMoveRaw(attacker, x, y, tx, ty)) { threatened = true; break; }
+                }
+                if (threatened) score -= pieceValue(Character.toUpperCase(moving));
+                board[sy][sx] = moving; board[ty][tx] = target;
+                if (score > bestScore) { bestScore = score; best = new int[]{sx, sy, tx, ty}; }
+            }
+        }
+        return best;
+    }
+
+    private int pieceValue(char piece) {
+        switch (piece) {
+            case 'K': return 10000; case 'R': return 900; case 'C': return 450;
+            case 'H': return 400; case 'E': return 200; case 'A': return 200; default: return 100;
+        }
+    }
+
     public boolean undo() {
         Move m = history.pollFirst();
         if (m == null) return false;

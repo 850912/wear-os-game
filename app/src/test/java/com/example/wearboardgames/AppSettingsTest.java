@@ -13,11 +13,11 @@ import static org.junit.Assert.*;
 public class AppSettingsTest {
     @Test public void performanceModesHaveDistinctFrameBudgets() {
         FakePrefs p = new FakePrefs();
-        assertEquals(24L, AppSettings.frameDelayMs(p));
+        assertEquals(16L, AppSettings.frameDelayMs(p));
         p.edit().putString(AppSettings.KEY_PERFORMANCE, "smooth").apply();
         assertEquals(0L, AppSettings.frameDelayMs(p));
         p.edit().putString(AppSettings.KEY_PERFORMANCE, "saver").apply();
-        assertEquals(50L, AppSettings.frameDelayMs(p));
+        assertEquals(40L, AppSettings.frameDelayMs(p));
     }
 
     @Test public void moveConfirmationDefaultsOnAndCanBeDisabled() {

@@ -39,4 +39,5 @@ public final class GameModes {
     public static final int HIGH_LOW = 38;
     public static final int ORBIT_TAP = 39;
     public static final int RING_TIMING = 40;
+    public static final int CHESS = 1001;
 }

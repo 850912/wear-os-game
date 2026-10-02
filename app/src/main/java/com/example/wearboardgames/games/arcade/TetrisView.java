@@ -34,7 +34,8 @@ public final class TetrisView extends BaseGameView {
     private boolean over, paused, holdUsed;
     private final RectF holdRect = new RectF();
     private final RectF nextRect = new RectF();
-    private final RectF pauseRect = new RectF();
+    private long groundedAt;
+    private int lockResets;
     private final RectF cellRect = new RectF();
     private final RectF frameRect = new RectF();
     private boolean sideControlGesture;
@@ -42,6 +43,13 @@ public final class TetrisView extends BaseGameView {
     public TetrisView(Context context) { super(context); }
     public static boolean supportsMode(int mode) { return mode == MODE; }
     @Override protected int gameMode() { return MODE; }
+    @Override protected String primaryActionLabel() { return paused ? "继续" : "暂停"; }
+    @Override protected void onPrimaryAction() {
+        paused = !paused;
+        nextTick = now() + dropDelay();
+        groundedAt = 0;
+        haptic(HapticFeedbackConstants.CLOCK_TICK);
+    }
 
     @Override protected void resetGame() {
         for (int[] row : board) Arrays.fill(row, 0);
@@ -87,29 +95,27 @@ public final class TetrisView extends BaseGameView {
             int ghostY = pieceY;
             while (fits(pieceX, ghostY + 1, rotation)) ghostY++;
             drawPiece(c, left, top, cell, pieceX, ghostY, rotation, Color.argb(74, 220, 230, 240), 1f);
-            float anim = clamp((now() - spawnAnimStart) / 150f, 0f, 1f);
+            float anim = animationsEnabled() ? clamp((now() - spawnAnimStart) / 150f, 0f, 1f) : 1f;
             float scale = .78f + .22f * (1f - (1f - anim) * (1f - anim));
-            float moveT = clamp((now() - pieceMoveAnimStart) / 125f, 0f, 1f);
+            float moveT = animationsEnabled() ? clamp((now() - pieceMoveAnimStart) / 125f, 0f, 1f) : 1f;
             float visualY = pieceMoveAnimStart == 0 ? pieceY : pieceMoveFromY + (pieceY - pieceMoveFromY) * (1f - (1f - moveT) * (1f - moveT));
             drawPiece(c, left, top, cell, pieceX, visualY, rotation, COLORS[type + 1], scale);
             if (moveT < 1f) animateNext();
         }
 
         long time = now();
-        if (time < lineFlashUntil) {
+        if (animationsEnabled() && time < lineFlashUntil) {
             float alpha = (lineFlashUntil - time) / 180f;
             p.setColor(Color.argb((int)(85 * clamp(alpha, 0, 1)), 255, 255, 255));
             c.drawRoundRect(frame, cell * .65f, cell * .65f, p);
             animateNext();
         }
-        if (time - spawnAnimStart < 150) animateNext();
+        if (animationsEnabled() && !paused && time - spawnAnimStart < 150) animateNext();
         if (paused && !over) {
             p.setColor(Color.argb(165, 0, 0, 0));
             c.drawRoundRect(frame, cell * .65f, cell * .65f, p);
             text(c, "暂停", frame.centerX(), frame.centerY() + s()*.018f, s()*.055f, TEXT, true, Paint.Align.CENTER);
         }
-        text(c, "左右移动 · 中下软降 · 上滑旋转 · 下滑直落", getWidth()/2f,
-                Math.min(gameBottom() - dp(2), top + bh + cell * .78f), s()*.0168f, MUTED, false, Paint.Align.CENTER);
     }
 
     private void drawSidePanel(Canvas c, RectF frame, float cell) {
@@ -117,12 +123,9 @@ public final class TetrisView extends BaseGameView {
         float chipH = Math.max(dp(42), s()*.16f);
         holdRect.set(dp(3), frame.top + frame.height()*.18f, dp(3)+chipW, frame.top + frame.height()*.18f+chipH);
         nextRect.set(getWidth()-dp(3)-chipW, frame.top + frame.height()*.18f, getWidth()-dp(3), frame.top + frame.height()*.18f+chipH);
-        pauseRect.set(getWidth()-dp(3)-chipW, nextRect.bottom+dp(6), getWidth()-dp(3), nextRect.bottom+dp(6)+dp(48));
         p.setColor(SURFACE_HIGH); c.drawRoundRect(holdRect, dp(10), dp(10), p); c.drawRoundRect(nextRect, dp(10), dp(10), p);
-        p.setColor(paused ? Color.rgb(74, 112, 91) : SURFACE_HIGH); c.drawRoundRect(pauseRect, dp(10), dp(10), p);
         text(c, "HOLD", holdRect.centerX(), holdRect.top+dp(12), s()*.016f, MUTED, true, Paint.Align.CENTER);
         text(c, "NEXT", nextRect.centerX(), nextRect.top+dp(12), s()*.016f, MUTED, true, Paint.Align.CENTER);
-        text(c, paused ? "继续" : "暂停", pauseRect.centerX(), pauseRect.centerY()+s()*.008f, s()*.019f, TEXT, true, Paint.Align.CENTER);
         if (holdType >= 0) drawMini(c, holdType, holdRect.centerX(), holdRect.centerY()+dp(6), Math.min(cell*.55f, dp(7)));
         if (nextType >= 0) drawMini(c, nextType, nextRect.centerX(), nextRect.centerY()+dp(6), Math.min(cell*.55f, dp(7)));
         if (combo > 0) text(c, "COMBO ×"+(combo+1), frame.centerX(), frame.top-dp(5), s()*.017f, SECONDARY, true, Paint.Align.CENTER);
@@ -184,6 +187,8 @@ public final class TetrisView extends BaseGameView {
         pieceX = 3;
         pieceY = -1;
         holdUsed = false;
+        groundedAt = 0;
+        lockResets = 0;
         pieceMoveFromY = pieceY; pieceMoveAnimStart = 0;
         nextTick = now() + dropDelay();
         spawnAnimStart = now();
@@ -196,23 +201,27 @@ public final class TetrisView extends BaseGameView {
 
     private long dropDelay() {
         // Gentle curve for a watch: meaningful acceleration without becoming unreadably fast.
-        return Math.max(300, 690 - (lines / 10) * 70L - Math.min(180, lines * 4L));
+        return TetrisTiming.dropDelay(lines);
     }
 
     private void update() {
         if (over || paused) return;
         long time = now();
+        if (!fits(pieceX, pieceY+1, rotation)) {
+            if (groundedAt == 0) groundedAt = time;
+            if (time-groundedAt >= TetrisTiming.LOCK_DELAY) { lockPiece(); return; }
+        } else groundedAt = 0;
         if (time >= nextTick) {
             step();
             nextTick = time + dropDelay();
         }
         // Only the active falling piece needs continuous frame scheduling.
-        invalidateSoon(Math.max(16, Math.min(80, nextTick - time)));
+        invalidateSoon(groundedAt == 0 ? Math.max(16, nextTick-time) : Math.max(16, Math.min(nextTick-time, TetrisTiming.LOCK_DELAY-(time-groundedAt))));
     }
 
     private void step() {
         if (fits(pieceX, pieceY+1, rotation)) { pieceMoveFromY = pieceY; pieceY++; pieceMoveAnimStart = now(); }
-        else lockPiece();
+        else if (groundedAt == 0) groundedAt = now();
     }
 
     private void lockPiece() {
@@ -249,15 +258,15 @@ public final class TetrisView extends BaseGameView {
     }
 
     private boolean move(int dx) {
-        if (!over && fits(pieceX+dx,pieceY,rotation)) { pieceX+=dx; return true; }
+        if (!over && fits(pieceX+dx,pieceY,rotation)) { pieceX+=dx; resetLockDelay(); return true; }
         return false;
     }
 
     private boolean rotate() {
         int next=(rotation+1)&3;
-        if (fits(pieceX,pieceY,next)) { rotation=next; return true; }
-        if (fits(pieceX-1,pieceY,next)) { pieceX--; rotation=next; return true; }
-        if (fits(pieceX+1,pieceY,next)) { pieceX++; rotation=next; return true; }
+        if (fits(pieceX,pieceY,next)) { rotation=next; resetLockDelay(); return true; }
+        if (fits(pieceX-1,pieceY,next)) { pieceX--; rotation=next; resetLockDelay(); return true; }
+        if (fits(pieceX+1,pieceY,next)) { pieceX++; rotation=next; resetLockDelay(); return true; }
         return false;
     }
 
@@ -272,7 +281,7 @@ public final class TetrisView extends BaseGameView {
     private void softDrop() {
         if (over || paused) return;
         if (fits(pieceX,pieceY+1,rotation)) { pieceY++; score++; pieceMoveFromY=pieceY-1; pieceMoveAnimStart=now(); }
-        else lockPiece();
+        else if (groundedAt == 0) groundedAt = now();
     }
 
     private void holdPiece() {
@@ -283,6 +292,7 @@ public final class TetrisView extends BaseGameView {
             spawnPiece();
         } else {
             type = holdType; holdType = current; rotation=0; pieceX=3; pieceY=-1;
+            groundedAt=0; lockResets=0; pieceMoveAnimStart=0; pieceMoveFromY=pieceY;
             spawnAnimStart=now(); nextTick=now()+dropDelay();
             if(!fits(pieceX,pieceY,rotation)){over=true;GameStats.recordMaxMetric(prefs,gameMode(),"level",lines / 10 + 1); GameStats.recordMaxMetric(prefs,gameMode(),"lines",lines); finishRound(-1,"无法换入方块","得分 "+score,score);}
         }
@@ -295,20 +305,15 @@ public final class TetrisView extends BaseGameView {
         return x>=r.left-ex&&x<=r.right+ex&&y>=r.top-ey&&y<=r.bottom+ey;
     }
     private boolean inHoldZone(float x,float y){return containsWithMinTouch(holdRect,x,y);}
-    private boolean inPauseZone(float x,float y){return containsWithMinTouch(pauseRect,x,y);}
+    private void resetLockDelay() { if (groundedAt != 0 && lockResets++ < 8) groundedAt = now(); }
 
-    @Override protected void onGameTouchDown(float x,float y){sideControlGesture=inPauseZone(x,y)||inHoldZone(x,y);}
+    @Override protected void onGameTouchDown(float x,float y){sideControlGesture=inHoldZone(x,y);}
 
     @Override protected void onGameTap(float x, float y) {
         if (over) { sideControlGesture=false; return; }
-        if (inPauseZone(x,y)) { paused=!paused; nextTick=now()+dropDelay(); haptic(HapticFeedbackConstants.CLOCK_TICK); sideControlGesture=false; invalidate(); return; }
         if (paused) { sideControlGesture=false; return; }
         if (inHoldZone(x,y)) { holdPiece(); sideControlGesture=false; invalidate(); return; }
-        boolean changed;
-        if (x < getWidth()*.35f) changed = move(-1);
-        else if (x > getWidth()*.65f) changed = move(1);
-        else if (y > gameTop() + (gameBottom()-gameTop())*.62f) { softDrop(); changed=true; }
-        else changed = rotate();
+        boolean changed = rotate();
         if (changed) haptic(HapticFeedbackConstants.CLOCK_TICK);
         sideControlGesture=false;
         invalidate();
@@ -319,8 +324,8 @@ public final class TetrisView extends BaseGameView {
         if (over || paused) return;
         boolean changed=false;
         if (Math.abs(dy) > Math.abs(dx)) {
-            if (dy > 0) { hardDrop(); changed=true; }
-            else changed=rotate();
+            if (dy > s()*.35f) { hardDrop(); changed=true; }
+            else if (dy > 0) { softDrop(); changed=true; }
         } else changed=move(dx>0?1:-1);
         if (changed) haptic(HapticFeedbackConstants.CLOCK_TICK);
         invalidate();
@@ -377,6 +382,7 @@ public final class TetrisView extends BaseGameView {
     }
 
     private void finishRestoreTiming(){
+        groundedAt=0; lockResets=0;
         nextTick=now()+dropDelay(); spawnAnimStart=now(); pieceMoveFromY=pieceY; pieceMoveAnimStart=0;
     }
 }

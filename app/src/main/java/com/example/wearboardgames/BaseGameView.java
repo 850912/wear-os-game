@@ -59,15 +59,18 @@ public abstract class BaseGameView extends View {
     private long pendingControlUntil;
     private int pressedControl = -1;
     private float downX, downY;
+    private float lastTouchX, lastTouchY;
+    private boolean panConsumed;
     private boolean downInGame;
     private boolean pinching;
     private boolean pinchConsumed;
     private float pinchDistance;
-    private boolean animationPosted;
+    private final FrameScheduler frames = new FrameScheduler(this);
 
     // Reused geometry: avoid allocating RectF arrays/objects during every watch frame.
     private final RectF restartRect = new RectF();
     private final RectF menuRect = new RectF();
+    private final RectF primaryRect = new RectF();
     private final RectF pillRect = new RectF();
     private final RectF gamePanelRect = new RectF();
     private final RectF resultRect = new RectF();
@@ -145,6 +148,9 @@ public abstract class BaseGameView extends View {
     protected void onGameTouchMove(float x, float y) { }
     protected void onGameTouchUp(float x, float y) { }
     protected void onGamePinchZoom(float factor) { }
+    protected boolean onGamePan(float dx, float dy) { return false; }
+    protected String primaryActionLabel() { return null; }
+    protected void onPrimaryAction() { }
     protected boolean lowerMetricIsBetter() { return false; }
 
     protected final boolean isSinglePlayer() { return singlePlayer; }
@@ -175,19 +181,11 @@ public abstract class BaseGameView extends View {
     }
 
     protected final void animateNext() {
-        if (!isAttachedToWindow() || getWindowVisibility() != VISIBLE) return;
-        if (animationPosted) return;
-        animationPosted = true;
-        long delay = AppSettings.frameDelayMs(prefs);
-        if (delay <= 0L) postInvalidateOnAnimation();
-        else postInvalidateDelayed(delay);
+        frames.request(AppSettings.frameDelayMs(prefs));
     }
 
     protected final void invalidateSoon(long delayMs) {
-        if (isAttachedToWindow() && getWindowVisibility() == VISIBLE && !animationPosted) {
-            animationPosted = true;
-            postInvalidateDelayed(delayMs);
-        }
+        frames.request(delayMs);
     }
 
     /** Starts the common 3-2-1-GO overlay used by reaction/action games. */
@@ -219,7 +217,7 @@ public abstract class BaseGameView extends View {
     }
 
     @Override protected final void onDraw(Canvas canvas) {
-        animationPosted = false;
+        frames.cancel();
         super.onDraw(canvas);
         drawBackground(canvas);
         drawGame(canvas);
@@ -232,13 +230,6 @@ public abstract class BaseGameView extends View {
     /** Shared chrome can be overridden by games with a canonical visual identity (for example 2048). */
     protected void drawBackground(Canvas canvas) {
         canvas.drawColor(BG);
-        if (richEffectsEnabled()) {
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.argb(34, 92, 145, 220));
-            canvas.drawCircle(getWidth() * .50f, -s() * .18f, s() * .72f, p);
-            p.setColor(Color.argb(20, 157, 106, 255));
-            canvas.drawCircle(getWidth() * .88f, getHeight() * .54f, s() * .55f, p);
-        }
     }
 
     protected int chromeSurfaceColor() { return SURFACE_HIGH; }
@@ -282,10 +273,8 @@ public abstract class BaseGameView extends View {
         p.setTypeface(bold ? BOLD : NORMAL);
         float fs = size;
         p.setTextSize(fs);
-        while (fs > s() * .017f && p.measureText(value) > maxWidth) {
-            fs *= .93f;
-            p.setTextSize(fs);
-        }
+        float measured = p.measureText(value);
+        if (measured > maxWidth && measured > 0) fs = Math.max(s()*.017f, size*maxWidth/measured);
         text(c, value, x, y, fs, color, bold, align);
     }
 
@@ -339,18 +328,24 @@ public abstract class BaseGameView extends View {
         float h = Math.max(dp(48), Math.min(dp(52), size * .21f));
         float gap = Math.max(dp(6), size * .016f);
         float usable = Math.min(getWidth() * (roundScreen ? .74f : .90f), dp(320));
-        float w = (usable - gap) / 2f;
+        boolean primary = primaryActionLabel() != null;
+        float w = (usable - gap * (primary ? 2 : 1)) / (primary ? 3f : 2f);
         float left = (getWidth() - usable) / 2f;
         RectF physicalLeft = leftHanded ? menuRect : restartRect;
         RectF physicalRight = leftHanded ? restartRect : menuRect;
         physicalLeft.set(left, bottom - h, left + w, bottom);
         physicalRight.set(left + w + gap, bottom - h, left + w + gap + w, bottom);
+        if (primary) {
+            primaryRect.set(left + w + gap, bottom-h, left + 2*w + gap, bottom);
+            physicalRight.offset(w+gap, 0);
+        }
     }
 
     private int bottomControlAt(float x, float y) {
         updateBottomRects();
         if (restartRect.contains(x, y)) return 0;
         if (menuRect.contains(x, y)) return 1;
+        if (primaryActionLabel() != null && primaryRect.contains(x, y)) return 2;
         return -1;
     }
 
@@ -360,7 +355,8 @@ public abstract class BaseGameView extends View {
         updateBottomRects();
         drawPill(c, restartRect, 0, pendingControl == 0 ? "确认重开" : "重开", pendingControl == 0, pressedControl == 0);
         drawPill(c, menuRect, 1, pendingControl == 1 ? "确认返回" : "菜单", pendingControl == 1, pressedControl == 1);
-        if (pendingControl >= 0) invalidateSoon(150);
+        if (primaryActionLabel() != null) drawPill(c, primaryRect, 2, primaryActionLabel(), false, pressedControl == 2);
+        if (pendingControl >= 0) invalidateSoon(Math.max(1, pendingControlUntil-time+1));
     }
 
     private void drawPill(Canvas c, RectF rect, int which, String label, boolean danger, boolean pressed) {
@@ -371,7 +367,7 @@ public abstract class BaseGameView extends View {
             if (pressed) scale = .935f;
             else if (releaseControl == which) {
                 float t = clamp((now() - releaseControlAt) / 210f, 0f, 1f);
-                scale = .935f + .065f * easeOutBack(t);
+                scale = .935f + .065f * easeOutCubic(t);
                 if (t < 1f) animateNext(); else releaseControl = -1;
             }
         }
@@ -386,6 +382,7 @@ public abstract class BaseGameView extends View {
     }
 
     private void handleBottomControl(int which) {
+        if (which == 2) { onPrimaryAction(); invalidate(); return; }
         long time = now();
         if (pendingControl == which && time <= pendingControlUntil) {
             pendingControl = -1;
@@ -441,7 +438,7 @@ public abstract class BaseGameView extends View {
         float elapsed = now() - resultShownAt;
         float dimIntro = animationsEnabled() ? clamp(elapsed / 180f, 0f, 1f) : 1f;
         float intro = animationsEnabled() ? clamp((elapsed - 110f) / 280f, 0f, 1f) : 1f;
-        float eased = animationsEnabled() ? easeOutBack(intro) : 1f;
+        float eased = animationsEnabled() ? easeOutCubic(intro) : 1f;
         float alphaEase = easeOutCubic(dimIntro);
         p.setColor(Color.argb((int)(205 * alphaEase), 0, 0, 0));
         c.drawRect(0, 0, getWidth(), getHeight(), p);
@@ -479,6 +476,9 @@ public abstract class BaseGameView extends View {
 
         int control = bottomControlAt(x, y);
         if (action == MotionEvent.ACTION_DOWN) {
+            pinching = pinchConsumed = false;
+            panConsumed = false;
+            lastTouchX = x; lastTouchY = y;
             downX = x;
             downY = y;
             pressedControl = control;
@@ -495,6 +495,7 @@ public abstract class BaseGameView extends View {
             return true;
         }
         if (action == MotionEvent.ACTION_MOVE) {
+            if (pinchConsumed) return true;
             if (pinching && event.getPointerCount() >= 2) {
                 float distance = pointerDistance(event);
                 if (pinchDistance > 1f && distance > 1f) onGamePinchZoom(distance / pinchDistance);
@@ -502,7 +503,13 @@ public abstract class BaseGameView extends View {
                 invalidate();
                 return true;
             }
-            if (downInGame && pressedControl < 0) onGameTouchMove(x, y);
+            if (downInGame && pressedControl < 0) {
+                if (panConsumed || Math.hypot(x-downX, y-downY) > dp(8)) {
+                    if (onGamePan(x-lastTouchX, y-lastTouchY)) panConsumed = true;
+                }
+                if (!panConsumed) onGameTouchMove(x, y);
+                lastTouchX = x; lastTouchY = y;
+            }
             return true;
         }
         if (action == MotionEvent.ACTION_POINTER_UP) {
@@ -511,15 +518,17 @@ public abstract class BaseGameView extends View {
             return true;
         }
         if (action == MotionEvent.ACTION_CANCEL) {
+            pinching = pinchConsumed = false;
             pressedControl = -1;
             downInGame = false;
             invalidate();
             return true;
         }
         if (action != MotionEvent.ACTION_UP) return true;
-        if (pinching || pinchConsumed) {
+        if (pinching || pinchConsumed || panConsumed) {
             pinching = false;
             pinchConsumed = false;
+            panConsumed = false;
             downInGame = false;
             return true;
         }
@@ -551,5 +560,16 @@ public abstract class BaseGameView extends View {
         float dx = event.getX(0) - event.getX(1);
         float dy = event.getY(0) - event.getY(1);
         return (float) Math.hypot(dx, dy);
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        frames.cancel();
+        super.onDetachedFromWindow();
+    }
+
+    @Override protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        if (frames != null && visibility != VISIBLE) frames.cancel();
+        else if (visibility == VISIBLE) invalidate();
     }
 }
