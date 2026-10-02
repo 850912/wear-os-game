@@ -28,7 +28,7 @@ public final class XiangqiView extends ZoomBoardView {
         String state = aiThinking ? "黑方思考中" : over ? "本局结束" : pendingTx >= 0 ? "再次点击目标确认" : engine.isRedTurn() ? "红方走" : "黑方走";
         drawHeader(c, "中国象棋", state);
         panel(c, b);
-        float cell = Math.min(b.width() / 8f, b.height() / 9f), w = cell * 8, h = cell * 9;
+        float cell = Math.min(b.width() / 9f, b.height() / 10f), w = cell * 8, h = cell * 9;
         float left = b.centerX() - w / 2f, top = b.centerY() - h / 2f;
         beginBoard(c, b);
 
@@ -69,7 +69,7 @@ public final class XiangqiView extends ZoomBoardView {
 
     @Override protected void onGameTap(float x, float y) {
         if (over || (isSinglePlayer() && !engine.isRedTurn())) return;
-        RectF b = board(); float cell = Math.min(b.width() / 8f, b.height() / 9f);
+        RectF b = board(); float cell = Math.min(b.width() / 9f, b.height() / 10f);
         float left = b.centerX() - cell * 4, top = b.centerY() - cell * 4.5f;
         x = viewport.boardX(x, b.centerX());
         y = viewport.boardY(y, b.centerY());
