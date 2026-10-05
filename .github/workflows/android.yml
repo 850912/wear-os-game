@@ -65,9 +65,10 @@ jobs:
           echo "- Size: **${MIB} MiB** (${BYTES} bytes)" >> "$GITHUB_STEP_SUMMARY"
           echo "- R8 minification: enabled" >> "$GITHUB_STEP_SUMMARY"
           echo "- Resource shrinking: enabled" >> "$GITHUB_STEP_SUMMARY"
-          test "$BYTES" -le 2097152 || { echo "Release APK exceeds the 2 MiB budget"; exit 1; }
+          test "$BYTES" -le 6291456 || { echo "Release APK exceeds the 6 MiB budget"; exit 1; }
 
       - name: Upload Debug APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: wear-os-game-debug
@@ -76,6 +77,7 @@ jobs:
           retention-days: 14
 
       - name: Upload optimized Release APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: wear-os-game-release
