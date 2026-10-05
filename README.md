@@ -1,4 +1,4 @@
-# 腕上小游戏 Wear OS · v8.1.0
+# 腕上小游戏 Wear OS · v8.1.1
 
 面向 Wear OS 小屏和圆屏的离线游戏合集，当前保留 **29 款游戏**。导航使用 Wear Compose Material 3，游戏使用原生 Canvas；棋盘规则与渲染分离。
 

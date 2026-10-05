@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AppLog.i("MainActivity onCreate; version=8.1.0")
+        AppLog.i("MainActivity onCreate; version=8.1.1")
         window.navigationBarColor = Color.BLACK
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
@@ -295,7 +295,7 @@ private fun WearGamesApp(
                             Toast.makeText(context, if (sent) "已请求在手机打开" else "未能连接配对手机", Toast.LENGTH_SHORT).show()
                         }
                     }
-                    item(key = "about") { ExpressiveCard("关于", "v8.1.0 · ${games.size} 款游戏", "i") { page = HubPage.ABOUT } }
+                    item(key = "about") { ExpressiveCard("关于", "v8.1.1 · ${games.size} 款游戏", "i") { page = HubPage.ABOUT } }
                 }
 
                 HubPage.RECORDS -> HubListScreen(
@@ -413,7 +413,7 @@ private fun WearGamesApp(
 
                 HubPage.ABOUT -> HubListScreen(
                     title = "关于",
-                    subtitle = "腕上小游戏 · v8.1.0",
+                    subtitle = "腕上小游戏 · v8.1.1",
                     edgeLabel = "返回",
                     onEdgeClick = { page = HubPage.TOOLS },
                 ) {

@@ -30,12 +30,15 @@ android {
         applicationId 'com.example.wearboardgames'
         minSdk 30
         targetSdk 35
-        versionCode 23
-        versionName '8.1.0'
+        versionCode 24
+        versionName '8.1.1'
+        resourceConfigurations += ['zh', 'en']
     }
 
     buildFeatures {
         compose true
+        buildConfig false
+        resValues false
     }
 
     compileOptions {

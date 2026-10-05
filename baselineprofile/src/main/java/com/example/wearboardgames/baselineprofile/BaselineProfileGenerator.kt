@@ -20,9 +20,9 @@ class BaselineProfileGenerator {
     ) {
         pressHome()
         startActivityAndWait()
-        device.waitForIdle()
+        device.wait(Until.hasObject(By.text("腕上小游戏")), 5_000)
 
-        // Compile the real home scroll/category/game path, not only Activity startup.
+        // Exercise list transforms, navigation and the custom Canvas game path.
         clickTextWithScroll("街机经典")
         device.wait(Until.hasObject(By.text("俄罗斯方块")), 3_000)
         clickTextWithScroll("俄罗斯方块")
@@ -32,6 +32,14 @@ class BaselineProfileGenerator {
         Thread.sleep(900)
         device.pressBack()
         Thread.sleep(120)
+        device.pressBack()
+        device.waitForIdle()
+
+        // Compile settings composition and preference-backed rows as part of the common journey.
+        clickTextWithScroll("设置与关于")
+        clickTextWithScroll("设置")
+        device.wait(Until.hasObject(By.textContains("动态配色")), 3_000)
+        device.pressBack()
         device.pressBack()
         device.waitForIdle()
     }

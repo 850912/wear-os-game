@@ -7,5 +7,8 @@ Lcom/example/wearboardgames/AppSettings;
 Lcom/example/wearboardgames/GameSaveManager;
 Lcom/example/wearboardgames/GameStats;
 Lcom/example/wearboardgames/BaseGameView;
+Lcom/example/wearboardgames/BaseGameView$*;
+Lcom/example/wearboardgames/games/arcade/TetrisView;
+Lcom/example/wearboardgames/games/arcade/TetrisStateCodec;
 HSPLcom/example/wearboardgames/MainActivity;-><init>()V
 HSPLcom/example/wearboardgames/MainActivity;->onCreate(Landroid/os/Bundle;)V

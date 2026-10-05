@@ -54,6 +54,19 @@ jobs:
       - name: Test, lint and build APKs
         run: gradle :app:testDebugUnitTest :app:lintRelease :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
 
+      - name: Verify optimized Release size
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          BYTES=$(stat -c%s "$APK")
+          MIB=$(awk "BEGIN { printf \"%.2f\", $BYTES / 1048576 }")
+          echo "### Release APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Size: **${MIB} MiB** (${BYTES} bytes)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- R8 minification: enabled" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Resource shrinking: enabled" >> "$GITHUB_STEP_SUMMARY"
+          test "$BYTES" -le 2097152 || { echo "Release APK exceeds the 2 MiB budget"; exit 1; }
+
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -78,3 +91,7 @@ jobs:
           path: |
             app/build/reports/tests/
             app/build/reports/lint-results-release.*
+            app/build/outputs/mapping/release/mapping.txt
+            app/build/outputs/mapping/release/usage.txt
+            app/build/outputs/mapping/release/seeds.txt
+            app/build/outputs/mapping/release/configuration.txt
